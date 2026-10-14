@@ -2,3 +2,7 @@
 sourcemap.json
 *.rbxl.lock
 .env
+art/
+*.blend
+*.blend1
+*.fbx
