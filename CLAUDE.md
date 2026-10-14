@@ -11,6 +11,6 @@ Rules for every agent:
 - Never edit scripts inside Roblox Studio. Scripts live in this repo and sync through Rojo.
 - All money and inventory logic runs on the server.
 - No free text input from players anywhere.
-- The currency is community points, never money.
+- The currency is money.
 - Treat religious items and holidays with respect. No caricatures and no jokes built on stereotypes.
 - Run bash claim.sh followed by a short description before starting a big task so the team sees it in Discord.
