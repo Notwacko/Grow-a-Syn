@@ -11,7 +11,6 @@ local DataService = {}
 local STORE_NAME = "GrowASyn_Core_v1"
 local SCHEMA_VERSION = 1
 
-local store = DataStoreService:GetDataStore(STORE_NAME)
 local states = {}
 local congregationProvider = nil
 local warnedOffline = false
@@ -87,7 +86,7 @@ function DataService.load(player)
 	local success, result
 	for attempt = 1, Config.LOAD_RETRIES do
 		success, result = pcall(function()
-			return store:GetAsync(storeKey(player))
+			return DataStoreService:GetDataStore(STORE_NAME):GetAsync(storeKey(player))
 		end)
 		if success then
 			break
@@ -134,7 +133,7 @@ function DataService.save(player, force)
 	local saved = false
 	for attempt = 1, Config.SAVE_RETRIES do
 		local ok, err = pcall(function()
-			store:UpdateAsync(storeKey(player), function(old)
+			DataStoreService:GetDataStore(STORE_NAME):UpdateAsync(storeKey(player), function(old)
 				local merged = type(old) == "table" and old or {}
 				merged.v = SCHEMA_VERSION
 				merged.money = data.money
@@ -183,13 +182,22 @@ function DataService.start()
 			if DataService.isLoaded(player) then
 				pending += 1
 				task.spawn(function()
-					DataService.save(player, true)
+					DataService.save(player, false)
 					pending -= 1
 				end)
 			end
 		end
 		local deadline = os.clock() + 25
-		while pending > 0 and os.clock() < deadline do
+		while os.clock() < deadline do
+			local busy = pending > 0
+			for _, state in states do
+				if state.saving then
+					busy = true
+				end
+			end
+			if not busy then
+				break
+			end
 			task.wait(0.1)
 		end
 	end)

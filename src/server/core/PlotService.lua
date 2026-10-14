@@ -342,7 +342,7 @@ local function buildBaseDecor(plot, frame)
 	end
 	local decor = Instance.new("Folder")
 	decor.Name = "Decor"
-	place(decor, "Path", Vector3.new(7, 0.2, 44), frame * CFrame.new(0, 0.1, 22), Config.COLORS.path, Enum.Material.SmoothPlastic, { CanCollide = false })
+	place(decor, "Path", Vector3.new(7, 0.2, 50), frame * CFrame.new(0, 0.1, 25), Config.COLORS.path, Enum.Material.SmoothPlastic, { CanCollide = false })
 	placeDecor(decor, frame, BASE_DECOR, nil)
 	decor.Parent = plot
 end

@@ -331,7 +331,10 @@ end
 local function processArrival(state, now)
 	local player = state.player
 	if state.restoreTarget then
-		return
+		local target = math.min(state.restoreTarget, state.info.seatCount)
+		if state.count + state.walking < target or now < state.restoreGrace then
+			return
+		end
 	end
 	local step = player:GetAttribute("TutorialStep") or 0
 	local hasMinyan = player:GetAttribute("HasMinyan") == true
@@ -546,6 +549,7 @@ function CongregationService.init(player, restoreTarget)
 		lastReconcile = 0,
 		restoreTarget = (restoreTarget and restoreTarget > 0) and restoreTarget or nil,
 		restoreUntil = math.huge,
+		restoreGrace = math.huge,
 	}
 end
 
@@ -559,6 +563,7 @@ function CongregationService.onClaimed(player, plot)
 	state.info = BuildingService.getInfo(player)
 	state.nextArrival = os.clock() + arrivalInterval(player)
 	state.restoreUntil = os.clock() + 45
+	state.restoreGrace = os.clock() + 8
 end
 
 function CongregationService.clear(player)

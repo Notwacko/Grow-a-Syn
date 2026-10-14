@@ -15,6 +15,7 @@ local TutorialService = {}
 local STEP = Constants.TUTORIAL
 
 local states = {}
+local pendingAdvance = {}
 
 local minyanRemote
 local advanceRemote
@@ -96,6 +97,12 @@ function TutorialService.init(player)
 		end
 		evaluate(player)
 	end))
+	if pendingAdvance[player] then
+		pendingAdvance[player] = nil
+		if currentStep(player) == STEP.WELCOME then
+			setStep(player, STEP.CLAIM_PLOT)
+		end
+	end
 	evaluate(player)
 end
 
@@ -104,7 +111,7 @@ function TutorialService.onGreeted(player)
 end
 
 function TutorialService.onPurchased(player, offerId)
-	if not Guard.isPlayer(player) or not Guard.isString(offerId, 64) then
+	if not Guard.isPlayer(player) then
 		return
 	end
 	if currentStep(player) == STEP.BUY then
@@ -113,6 +120,7 @@ function TutorialService.onPurchased(player, offerId)
 end
 
 function TutorialService.forget(player)
+	pendingAdvance[player] = nil
 	local state = states[player]
 	if state then
 		for _, connection in state.connections do
@@ -128,6 +136,10 @@ function TutorialService.bind()
 	local purchased = Link.get(ServerStorage, "Bridge", Constants.BRIDGE.Purchased, "BindableEvent")
 	purchased.Event:Connect(TutorialService.onPurchased)
 	Guard.connect(advanceRemote, "AdvanceTutorial", Config.COOLDOWNS.AdvanceTutorial, function(player)
+		if not states[player] then
+			pendingAdvance[player] = true
+			return
+		end
 		if currentStep(player) ~= STEP.WELCOME then
 			Guard.flag(player, "AdvanceTutorial", "not at step 0")
 			return

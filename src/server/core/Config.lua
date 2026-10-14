@@ -30,7 +30,7 @@ Config.LAND_COSTS = { 750, 4000, 20000, 100000, 500000 }
 
 Config.CLAIM_PAD_LOCAL = Vector3.new(0, 0, 9)
 Config.NPC_SPAWN_LOCAL = Vector3.new(-20, 0, 3)
-Config.BUILDING_ANCHOR_LOCAL = Vector3.new(0, 0, 62)
+Config.BUILDING_ANCHOR_LOCAL = Vector3.new(0, 0, 70)
 Config.PLOT_SPAWN_LOCAL = Vector3.new(14, 0, 4)
 
 Config.CLAIM_DISTANCE = 26
