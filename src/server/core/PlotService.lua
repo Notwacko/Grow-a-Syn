@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
@@ -8,6 +9,7 @@ local Guard = require(script.Parent.Guard)
 local Notify = require(script.Parent.Notify)
 local Economy = require(script.Parent.Economy)
 local Fx = require(script.Parent.Fx)
+local Format = require(script.Parent.Format)
 local Props = require(script.Parent.Props)
 local Procedural = require(script.Parent.Procedural)
 local Signal = require(script.Parent.Signal)
@@ -25,6 +27,14 @@ local ownerPlot = {}
 local readyPlayers = {}
 local animateNext = {}
 local landConnections = {}
+
+local FLAG_COLORS = {
+	[2] = Color3.fromRGB(255, 107, 107),
+	[3] = Color3.fromRGB(255, 154, 72),
+	[4] = Color3.fromRGB(255, 205, 66),
+	[5] = Color3.fromRGB(94, 214, 130),
+	[6] = Color3.fromRGB(86, 156, 255),
+}
 
 local BASE_DECOR = {
 	{ "lamp", -9, 3, 0 },
@@ -229,28 +239,52 @@ local function buildSign(pad, index)
 	subStroke.Parent = sub
 end
 
-local function updatePad(plot, owner)
+local function refreshPad(plot)
 	local pad = plot:FindFirstChild("ClaimPad")
 	if not pad then
 		return
 	end
 	local prompt = pad:FindFirstChildOfClass("ProximityPrompt")
 	local sign = pad:FindFirstChild("PlotSign")
+	local title = sign and sign:FindFirstChild("Title")
+	local sub = sign and sign:FindFirstChild("Sub")
+	local index = plot:GetAttribute("PlotIndex") or 0
+	local ownerId = plot:GetAttribute("OwnerUserId") or 0
+	local owner = ownerId ~= 0 and Players:GetPlayerByUserId(ownerId) or nil
 	if owner then
+		local tier = owner:GetAttribute("LandTier") or 1
 		pad.Color = Config.COLORS.padOwned
 		if prompt then
-			prompt.Enabled = false
+			if tier >= Constants.MAX_LAND_TIER then
+				prompt.ActionText = "Land fully expanded"
+				prompt.ObjectText = owner.DisplayName
+				prompt.Enabled = false
+			else
+				prompt.ActionText = "Expand Land"
+				prompt.ObjectText = "Cost " .. Format.short(Config.LAND_COSTS[tier])
+				prompt.HoldDuration = 0.6
+				prompt.Enabled = true
+			end
 		end
-		if sign and sign:FindFirstChild("Title") then
-			sign.Title.Text = owner.DisplayName .. "'s Synagogue"
+		if title then
+			title.Text = owner.DisplayName .. "'s Synagogue"
+		end
+		if sub then
+			sub.Text = "LAND " .. tier .. "/" .. Constants.MAX_LAND_TIER
 		end
 	else
 		pad.Color = Config.COLORS.padFree
 		if prompt then
+			prompt.ActionText = "Claim Plot"
+			prompt.ObjectText = "Plot " .. index
+			prompt.HoldDuration = 0.4
 			prompt.Enabled = true
 		end
-		if sign and sign:FindFirstChild("Title") then
-			sign.Title.Text = "FREE PLOT"
+		if title then
+			title.Text = "FREE PLOT"
+		end
+		if sub then
+			sub.Text = "PLOT " .. index
 		end
 	end
 end
@@ -277,7 +311,7 @@ local function ensurePad(plot, index, frame)
 	end
 	local prompt = pad:FindFirstChildOfClass("ProximityPrompt")
 	prompt.Triggered:Connect(function(player)
-		PlotService.claim(player, index, true)
+		PlotService.padTriggered(player, index)
 	end)
 end
 
@@ -382,6 +416,7 @@ local function applyLand(plot, tier, animate)
 	local frame = frameOf(plot)
 	tier = math.clamp(tier, 1, Constants.MAX_LAND_TIER)
 	local folder = extensionFolder(plot)
+	local animatedTier = false
 	for t = 2, Constants.MAX_LAND_TIER do
 		local existing = folder:FindFirstChild("Ext" .. t)
 		if t <= tier and not existing then
@@ -395,6 +430,11 @@ local function applyLand(plot, tier, animate)
 				TopSurface = Enum.SurfaceType.Studs,
 			})
 			stripes(group, frame, region.x1, region.x2, region.z1, region.z2, 0)
+			local flagColor = FLAG_COLORS[t]
+			local flagX, flagZ = cx, region.z2 - 4
+			place(group, "FlagPole", Vector3.new(0.6, 14, 0.6), frame * CFrame.new(flagX, 7, flagZ), Config.COLORS.woodDark)
+			place(group, "Flag", Vector3.new(6, 3.4, 0.3), frame * CFrame.new(flagX + 3.2, 12, flagZ), flagColor, Enum.Material.SmoothPlastic, { CanCollide = false })
+			place(group, "FlagTop", Vector3.new(1.2, 1.2, 1.2), frame * CFrame.new(flagX, 14.4, flagZ), Config.COLORS.gold, Enum.Material.Neon, { Shape = Enum.PartType.Ball, CanCollide = false })
 			local decorFolder = Instance.new("Folder")
 			decorFolder.Name = "Decor"
 			decorFolder.Parent = group
@@ -409,8 +449,12 @@ local function applyLand(plot, tier, animate)
 					end
 				end
 				TweenService:Create(strip, TweenInfo.new(0.9, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = target }):Play()
-				Fx.puff((target * CFrame.new(0, 1, 0)).Position)
+				local middle = (target * CFrame.new(0, 1, 0)).Position
+				Fx.puff(middle)
+				Fx.ring(middle, flagColor, 36)
+				Fx.floatText(middle + Vector3.new(0, 9, 0), "LAND " .. t, flagColor)
 				placeDecor(decorFolder, frame, EXTENSION_DECOR[t], 0.09)
+				animatedTier = true
 			else
 				placeDecor(decorFolder, frame, EXTENSION_DECOR[t], nil)
 			end
@@ -419,7 +463,15 @@ local function applyLand(plot, tier, animate)
 			existing:Destroy()
 		end
 	end
-	buildFence(plot, frame, tier)
+	if animatedTier then
+		task.delay(0.9, function()
+			if plot.Parent then
+				buildFence(plot, frame, tier)
+			end
+		end)
+	else
+		buildFence(plot, frame, tier)
+	end
 end
 
 local function clearFootprint(plot, floor)
@@ -546,7 +598,7 @@ function PlotService.claim(player, index, fromPrompt)
 	plot:SetAttribute("OwnerUserId", player.UserId)
 	ownerPlot[player] = index
 	player:SetAttribute("PlotId", index)
-	updatePad(plot, player)
+	refreshPad(plot)
 	applyLand(plot, player:GetAttribute("LandTier") or 1, false)
 	local pad = plot.ClaimPad
 	Fx.confetti(pad.Position + Vector3.new(0, 3, 0), 0.8)
@@ -554,6 +606,23 @@ function PlotService.claim(player, index, fromPrompt)
 	Notify.send(player, "success", "Plot claimed! Welcome to your synagogue")
 	PlotService.Claimed:Fire(player, plot, index)
 	return true
+end
+
+function PlotService.padTriggered(player, index)
+	local plot = plots[index]
+	if not plot or not Guard.isPlayer(player) then
+		return
+	end
+	local ownerId = plot:GetAttribute("OwnerUserId")
+	if ownerId == 0 then
+		PlotService.claim(player, index, true)
+	elseif ownerId == player.UserId then
+		if Guard.allow(player, "ExpandLand", Config.COOLDOWNS.ExpandLand) then
+			PlotService.expandLand(player)
+		end
+	else
+		Notify.send(player, "info", "This synagogue belongs to another player")
+	end
 end
 
 function PlotService.autoClaim(player)
@@ -582,7 +651,7 @@ function PlotService.release(player)
 	clearFolder(plot:FindFirstChild("Building"))
 	clearFolder(plot:FindFirstChild("Congregants"))
 	resetLand(plot)
-	updatePad(plot, nil)
+	refreshPad(plot)
 	if player.Parent then
 		player:SetAttribute("PlotId", 0)
 	end
@@ -626,6 +695,7 @@ function PlotService.watch(player)
 		local animate = animateNext[player] == true
 		animateNext[player] = nil
 		applyLand(plots[index], player:GetAttribute("LandTier") or 1, animate)
+		refreshPad(plots[index])
 	end)
 end
 

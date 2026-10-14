@@ -5,6 +5,8 @@ local Workspace = game:GetService("Workspace")
 local Fx = {}
 
 local folder
+local alive = 0
+local Config = require(script.Parent.Config)
 
 local RAINBOW = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 82, 82)),
@@ -55,6 +57,10 @@ local function anchorPart(position, lifetime)
 	part.Position = position
 	part.Parent = fxFolder()
 	Debris:AddItem(part, lifetime)
+	alive += 1
+	part.Destroying:Connect(function()
+		alive -= 1
+	end)
 	return part
 end
 
@@ -84,6 +90,9 @@ local function burst(position, config)
 end
 
 function Fx.sparkle(position)
+	if alive >= Config.MAX_FX_PARTS then
+		return
+	end
 	burst(position, {
 		rate = 140,
 		duration = 0.15,
@@ -115,6 +124,9 @@ function Fx.confetti(position, power)
 end
 
 function Fx.puff(position)
+	if alive >= Config.MAX_FX_PARTS then
+		return
+	end
 	burst(position, {
 		rate = 90,
 		duration = 0.2,

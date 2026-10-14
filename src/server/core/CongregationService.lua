@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -21,6 +22,7 @@ local states = {}
 local walkers = {}
 local idlers = {}
 local rng = Random.new()
+local moveAccumulator = 0
 
 local GOLD = Color3.fromRGB(255, 214, 80)
 
@@ -59,12 +61,56 @@ local function prepareReal(model)
 	end
 end
 
+local function pickVariant()
+	local total = 0
+	for _, weight in Config.VARIANT_WEIGHTS do
+		total += weight
+	end
+	local roll = rng:NextNumber() * total
+	for variant, weight in Config.VARIANT_WEIGHTS do
+		roll -= weight
+		if roll <= 0 then
+			return variant
+		end
+	end
+	return 1
+end
+
+local function luminance(color)
+	return 0.299 * color.R + 0.587 * color.G + 0.114 * color.B
+end
+
 local function tint(model)
 	local top = pick(Config.CLOTH_TOP_COLORS)
 	local bottom = pick(Config.CLOTH_BOTTOM_COLORS)
+	local kippah = pick(Config.KIPPAH_COLORS)
+	local recolorHair = rng:NextNumber() < 0.7
+	local hair = pick(Config.HAIR_COLORS)
+	local dropTallit = rng:NextNumber() < 0.3
+	local removable = {}
 	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") and string.sub(part.Name, 1, 5) == "Cloth" then
-			part.Color = string.find(part.Name, "Bottom") and bottom or top
+		if part:IsA("BasePart") then
+			local name = part.Name
+			if string.sub(name, 1, 5) == "Cloth" then
+				part.Color = string.find(name, "Bottom") and bottom or top
+			elseif string.sub(name, 1, 6) == "Kippah" then
+				part.Color = kippah
+			elseif string.sub(name, 1, 4) == "Hair" and recolorHair and luminance(part.Color) < 0.45 then
+				part.Color = hair
+			elseif string.sub(name, 1, 6) == "Tallit" and dropTallit then
+				table.insert(removable, part)
+			end
+		end
+	end
+	for _, part in removable do
+		part:Destroy()
+	end
+end
+
+local function shadeParts(model)
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CastShadow = Config.CONGREGANT_SHADOWS
 		end
 	end
 end
@@ -87,7 +133,8 @@ local function createModel(variant)
 	model.Name = "Congregant"
 	model:SetAttribute("Congregant", true)
 	tint(model)
-	local scale = (model:GetAttribute("BaseScale") or 1) * rng:NextNumber(0.94, 1.06)
+	shadeParts(model)
+	local scale = (model:GetAttribute("BaseScale") or 1) * rng:NextNumber(0.92, 1.08)
 	model:ScaleTo(scale)
 	local yaw = math.rad(model:GetAttribute("FaceYaw") or 0)
 	return model, Config.CONGREGANT_HIP * scale, yaw
@@ -97,10 +144,12 @@ local function newEntry(state)
 	state.nextId += 1
 	local entry = {
 		id = state.nextId,
-		variant = rng:NextInteger(1, Config.CONGREGANT_VARIANTS),
+		variant = pickVariant(),
 		status = "new",
 		hip = Config.CONGREGANT_HIP,
 		yaw = 0,
+		speed = Config.WALK_SPEED * rng:NextNumber(Config.WALK_SPEED_RANGE[1], Config.WALK_SPEED_RANGE[2]),
+		seatYaw = math.rad(rng:NextNumber(-8, 8)),
 	}
 	state.entries[entry.id] = entry
 	return entry
@@ -111,6 +160,8 @@ local function attachModel(state, entry, variant)
 	entry.model = model
 	entry.hip = hip
 	entry.yaw = yaw
+	model:SetAttribute("OwnerUserId", state.player.UserId)
+	CollectionService:AddTag(model, "Congregant")
 	model.Parent = state.folder
 	state.models += 1
 	return model
@@ -181,7 +232,7 @@ end
 local function seatInstant(state, entry)
 	local info = state.info
 	if entry.model and entry.seatIndex and info.seats[entry.seatIndex] then
-		entry.model:PivotTo(faceCFrame(seatPosition(info, entry.seatIndex, entry.hip), info.forward, entry.yaw))
+		entry.model:PivotTo(faceCFrame(seatPosition(info, entry.seatIndex, entry.hip), info.forward, entry.yaw) * CFrame.Angles(0, entry.seatYaw, 0))
 	end
 end
 
@@ -214,6 +265,7 @@ local function startWalk(state, entry)
 		points = points,
 		index = 2,
 		position = from,
+		speed = entry.speed,
 		direction = Vector3.new(0, 0, -1),
 	}
 end
@@ -234,13 +286,23 @@ local function arrive(state, entry)
 end
 
 local function stepWalkers(dt)
+	if next(walkers) == nil and next(idlers) == nil then
+		moveAccumulator = 0
+		return
+	end
+	moveAccumulator += dt
+	if moveAccumulator < Config.MOVE_STEP then
+		return
+	end
+	dt = moveAccumulator
+	moveAccumulator = 0
 	local now = os.clock()
 	for entry, walk in walkers do
 		local model = entry.model
 		if not model or not model.Parent then
 			walkers[entry] = nil
 		else
-			local remaining = Config.WALK_SPEED * dt
+			local remaining = walk.speed * dt
 			while remaining > 0 and walk.index <= #walk.points do
 				local target = walk.points[walk.index]
 				local delta = target - walk.position
@@ -460,6 +522,8 @@ function CongregationService.spawnGuests(player)
 		entry.hip = hip
 		entry.yaw = yaw
 		entry.status = "waiting"
+		model:SetAttribute("OwnerUserId", player.UserId)
+		CollectionService:AddTag(model, "Congregant")
 		model.Parent = state.folder
 		state.models += 1
 		local position = feet + spawn.CFrame.RightVector * ((index - 2) * 3.6)
@@ -608,6 +672,21 @@ function CongregationService.greetCount(player)
 	return state and state.greetCount or 0
 end
 
+local function publishStats()
+	local models, seated = 0, 0
+	for _, state in states do
+		models += state.models
+		seated += state.count
+	end
+	local workspaceRoot = game:GetService("Workspace")
+	if workspaceRoot:GetAttribute("CongregantModels") ~= models then
+		workspaceRoot:SetAttribute("CongregantModels", models)
+	end
+	if workspaceRoot:GetAttribute("CongregantsSeated") ~= seated then
+		workspaceRoot:SetAttribute("CongregantsSeated", seated)
+	end
+end
+
 function CongregationService.start()
 	RunService.Heartbeat:Connect(function(dt)
 		local ok, err = pcall(stepWalkers, dt)
@@ -615,10 +694,15 @@ function CongregationService.start()
 			warn("[Congregation] movement failed: " .. tostring(err))
 		end
 	end)
+	local lastStats = 0
 	task.spawn(function()
 		while true do
 			task.wait(0.25)
 			local now = os.clock()
+			if now - lastStats >= 1 then
+				lastStats = now
+				publishStats()
+			end
 			for _, state in states do
 				if state.plot and state.info and state.folder then
 					local ok, err = pcall(function()

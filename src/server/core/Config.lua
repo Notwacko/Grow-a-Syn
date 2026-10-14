@@ -48,11 +48,15 @@ Config.ARRIVAL_JITTER = 0.2
 Config.TUTORIAL_ARRIVAL_INTERVAL = 3
 
 Config.WALK_SPEED = 13
+Config.WALK_SPEED_RANGE = { 0.85, 1.2 }
+Config.MOVE_STEP = 1 / 30
+Config.MAX_FX_PARTS = 70
 Config.TOTAL_CONGREGANT_CAP = 320
 Config.MIN_VISIBLE_PER_PLOT = 12
 Config.RECONCILE_INTERVAL = 1
 Config.RECONCILE_SPAWN_PER_TICK = 4
 
+Config.CONGREGANT_SHADOWS = false
 Config.CONGREGANT_HEIGHT = 5.5
 Config.CONGREGANT_HIP = 2.6
 Config.CONGREGANT_VARIANTS = 6
@@ -76,6 +80,28 @@ Config.CLOTH_TOP_COLORS = {
 	Color3.fromRGB(255, 154, 72),
 	Color3.fromRGB(64, 196, 196),
 }
+
+Config.KIPPAH_COLORS = {
+	Color3.fromRGB(28, 28, 36),
+	Color3.fromRGB(47, 62, 102),
+	Color3.fromRGB(255, 255, 255),
+	Color3.fromRGB(74, 123, 208),
+	Color3.fromRGB(76, 163, 107),
+	Color3.fromRGB(150, 50, 60),
+	Color3.fromRGB(235, 190, 70),
+	Color3.fromRGB(130, 90, 190),
+}
+
+Config.HAIR_COLORS = {
+	Color3.fromRGB(30, 22, 18),
+	Color3.fromRGB(60, 40, 30),
+	Color3.fromRGB(110, 70, 40),
+	Color3.fromRGB(160, 100, 50),
+	Color3.fromRGB(205, 160, 90),
+	Color3.fromRGB(170, 70, 40),
+}
+
+Config.VARIANT_WEIGHTS = { 1, 1, 1, 1, 1, 0.55 }
 
 Config.CLOTH_BOTTOM_COLORS = {
 	Color3.fromRGB(38, 44, 66),

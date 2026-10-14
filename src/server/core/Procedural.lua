@@ -95,13 +95,8 @@ function Procedural.lamp()
 	local model = newModel("prop_lamp")
 	place(model, "Base", Vector3.new(2, 0.8, 2), CFrame.new(0, 0.4, 0), Config.COLORS.dark)
 	place(model, "Pole", Vector3.new(0.7, 9, 0.7), CFrame.new(0, 4.8, 0), Config.COLORS.dark)
-	local bulb = place(model, "Glow", Vector3.new(2.2, 2.2, 2.2), CFrame.new(0, 10.2, 0), rgb(255, 233, 160), Enum.Material.Neon)
+	place(model, "Glow", Vector3.new(2.2, 2.2, 2.2), CFrame.new(0, 10.2, 0), rgb(255, 233, 160), Enum.Material.Neon)
 	place(model, "Cap", Vector3.new(3, 0.6, 3), CFrame.new(0, 11.6, 0), Config.COLORS.dark)
-	local light = Instance.new("PointLight")
-	light.Range = 24
-	light.Brightness = 1.4
-	light.Color = rgb(255, 226, 150)
-	light.Parent = bulb
 	model.WorldPivot = CFrame.new()
 	return model, 4
 end
