@@ -617,6 +617,10 @@ function PlotService.padTriggered(player, index)
 	if ownerId == 0 then
 		PlotService.claim(player, index, true)
 	elseif ownerId == player.UserId then
+		if not Guard.nearPart(player, plot.ClaimPad, Config.CLAIM_DISTANCE) then
+			Guard.flag(player, "ExpandLand", "too far from pad")
+			return
+		end
 		if Guard.allow(player, "ExpandLand", Config.COOLDOWNS.ExpandLand) then
 			PlotService.expandLand(player)
 		end

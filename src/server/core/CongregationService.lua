@@ -9,6 +9,7 @@ local Guard = require(script.Parent.Guard)
 local Notify = require(script.Parent.Notify)
 local Economy = require(script.Parent.Economy)
 local Fx = require(script.Parent.Fx)
+local Income = require(script.Parent.Income)
 local Procedural = require(script.Parent.Procedural)
 local BuildingService = require(script.Parent.BuildingService)
 local Signal = require(script.Parent.Signal)
@@ -340,10 +341,14 @@ end
 
 local function arrivalInterval(player)
 	local welcome = readNumber(player:GetAttribute("WelcomeBonus"), 0)
-	local base = math.clamp(Config.ARRIVAL_BASE_INTERVAL / (1 + welcome), Config.ARRIVAL_MIN_INTERVAL, Config.ARRIVAL_MAX_INTERVAL)
-	if player:GetAttribute("HasMinyan") ~= true then
-		base = math.min(base, Config.TUTORIAL_ARRIVAL_INTERVAL)
-	end
+	local base = Income.arrivalInterval(
+		welcome,
+		player:GetAttribute("HasMinyan") == true,
+		Config.ARRIVAL_BASE_INTERVAL,
+		Config.ARRIVAL_MIN_INTERVAL,
+		Config.ARRIVAL_MAX_INTERVAL,
+		Config.TUTORIAL_ARRIVAL_INTERVAL
+	)
 	local jitter = 1 + (rng:NextNumber() * 2 - 1) * Config.ARRIVAL_JITTER
 	return base * jitter
 end
@@ -470,6 +475,10 @@ local function greet(state, entry, who)
 		return
 	end
 	if not Guard.allow(who, "Greet", Config.COOLDOWNS.Greet) then
+		return
+	end
+	if not Guard.nearPart(who, entry.model.PrimaryPart, Config.GREET_DISTANCE * 2.5) then
+		Guard.flag(who, "Greet", "too far from guest")
 		return
 	end
 	if who:GetAttribute("TutorialStep") ~= Constants.TUTORIAL.GREET then

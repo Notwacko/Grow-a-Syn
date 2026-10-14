@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local Link = require(script.Parent.Link)
 local Config = require(script.Parent.Config)
 local Guard = require(script.Parent.Guard)
+local Income = require(script.Parent.Income)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local Economy = {}
@@ -113,14 +114,13 @@ function Economy.getEventMult()
 end
 
 function Economy.incomePerSecond(player)
-	if player:GetAttribute("HasMinyan") ~= true then
-		return 0
-	end
-	local congregation = readNumber(player:GetAttribute("Congregation"), 0)
-	local incomeMult = readNumber(player:GetAttribute("IncomeMult"), 1)
-	local boostMult = readNumber(player:GetAttribute("BoostMult"), 1)
-	local eventMult = Economy.getEventMult()
-	return math.clamp(congregation * incomeMult * boostMult * eventMult, 0, 1e12)
+	return Income.perSecond(
+		player:GetAttribute("HasMinyan") == true,
+		readNumber(player:GetAttribute("Congregation"), 0),
+		readNumber(player:GetAttribute("IncomeMult"), 1),
+		readNumber(player:GetAttribute("BoostMult"), 1),
+		Economy.getEventMult()
+	)
 end
 
 local function tickPlayer(player, dt)
