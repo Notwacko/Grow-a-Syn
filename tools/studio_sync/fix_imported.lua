@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local DOOR_HEIGHT = 9
+local STARTER_SCALE = 1.2
 local TALLIT_NECK_OFFSET = 0.99
 
 local NAMES = {
@@ -113,6 +114,9 @@ local function fixBuilding(name, model)
 	model.PrimaryPart = floor
 	floor.PivotOffset = CFrame.new()
 	local factor = DOOR_HEIGHT / math.max(door.Size.X, door.Size.Y, door.Size.Z)
+	if name == "starter" then
+		factor *= STARTER_SCALE
+	end
 	model:ScaleTo(model:GetScale() * factor)
 	note(name, string.format("seats=%d slots=%d floor=%s doorH=%.2f", seatCount, slotCount, tostring(floor.Size), math.max(door.Size.X, door.Size.Y, door.Size.Z)))
 end
