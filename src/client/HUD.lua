@@ -59,10 +59,12 @@ function HUD.new(ctx, hooks)
 		FillDirectionMaxCells = 4,
 	}, left)
 	local shopBtn = C.iconButton(left, { icon = "🛒", label = "Shop", color = Color.Red, order = 1, name = "Shop", onClick = function() hooks.openShop() end })
-	local itemsBtn = C.iconButton(left, { icon = "🎒", label = "Items", color = Color.Yellow, order = 2, name = "Items", onClick = function() hooks.openInventory() end })
+	local _itemsBtn = C.iconButton(left, { icon = "🎒", label = "Items", color = Color.Yellow, order = 2, name = "Items", onClick = function() hooks.openInventory() end })
 	local landBtn = C.iconButton(left, { icon = "🌳", label = "Land", color = Color.Green, order = 3, name = "Land", onClick = function() hooks.openLand() end })
 	local upgradeBtn = C.iconButton(left, { icon = "⬆", label = "Upgrade", color = Color.Purple, order = 4, name = "Upgrade", visible = false, onClick = function() hooks.openUpgrade() end })
 	self.targets.Shop = shopBtn.Root
+	self.targets.Land = landBtn.Root
+	self.targets.Upgrade = upgradeBtn.Root
 
 	local function relayout()
 		local design = ctx.designSize()
@@ -166,14 +168,41 @@ function HUD.new(ctx, hooks)
 	shown.Changed:Connect(paintMoney)
 	paintMoney(shown.Value)
 	local lastMoney = shown.Value
+	local pop = C.new("UIScale", { Name = "Pop", Scale = 1 }, moneyPill.Root)
+	local pulses = {}
+	local function setPulse(key, target, on)
+		if on and not pulses[key] then
+			pulses[key] = C.pulse(target, 1.1)
+		elseif not on and pulses[key] then
+			pulses[key]()
+			pulses[key] = nil
+		end
+	end
+	-- Land / Upgrade pulse gently while the player can afford them (and the tutorial is over)
+	local function refreshAffordable()
+		local money = Net.attr("Money", 0)
+		local done = Net.attr("TutorialStep", 0) >= Contract.Step.Done
+		local landCost = Contract.LAND_COSTS[Net.attr("LandTier", 1)]
+		setPulse("land", landBtn.Root, done and Net.attr("PlotId", 0) > 0 and landCost ~= nil and money >= landCost)
+		local info = catalog.upgrades[Net.attr("Tier", 1) + 1]
+		local denChosen = (Net.attr("Denomination", "") or "") ~= ""
+		setPulse("upgrade", upgradeBtn.Root, done and denChosen and info ~= nil and info.cost ~= nil and money >= info.cost)
+	end
 	Net.onAttr("Money", function(value)
 		value = value or 0
 		TweenService:Create(shown, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = value }):Play()
 		if value > lastMoney then
 			FloatingNumbers.spawn("+" .. Format.short(value - lastMoney))
+			pop.Scale = 1.18
+			C.tween(pop, 0.3, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 		end
 		lastMoney = value
+		refreshAffordable()
 	end)
+	for _, name in { "LandTier", "Tier", "TutorialStep", "Denomination", "PlotId" } do
+		Net.onAttr(name, refreshAffordable)
+	end
+	refreshAffordable()
 
 	local function refreshBar()
 		local n = Net.attr("Congregation", 0)

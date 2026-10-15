@@ -85,7 +85,9 @@ Notifications.init(ctx)
 local ShopUI = require(script.Parent.ShopUI).new(ctx)
 local InventoryUI = require(script.Parent.InventoryUI).new(ctx)
 local PickerUI = require(script.Parent.DenominationPickerUI).new(ctx)
-local windows = { shop = ShopUI, inventory = InventoryUI, picker = PickerUI }
+local LandUI = require(script.Parent.LandExpandUI).new(ctx)
+local UpgradeUI = require(script.Parent.BuildingUpgradeUI).new(ctx)
+local windows = { shop = ShopUI, inventory = InventoryUI, picker = PickerUI, land = LandUI, upgrade = UpgradeUI }
 
 local function open(name, ...)
 	for other, window in windows do
@@ -107,10 +109,10 @@ local hooks = {
 		open("picker")
 	end,
 	openLand = function()
-		ctx.toast("Land expansion is coming soon!", "info")
+		open("land")
 	end,
 	openUpgrade = function()
-		ctx.toast("Building upgrades are coming soon!", "info")
+		open("upgrade")
 	end,
 }
 
@@ -118,8 +120,19 @@ local HUD = require(script.Parent.HUD).new(ctx, hooks)
 require(script.Parent.TierPopup).watch(ctx)
 require(script.Parent.Tutorial).new(ctx, HUD, hooks)
 
+-- MINYAN celebration: big text and a confetti burst (no overlay), then the denomination picker
+local function celebrateMinyan()
+	local label = C.text(ctx.layers.popup, { text = "MINYAN!", size = "XL", color = Theme.Color.Yellow, sizeU = UDim2.fromOffset(280, 64), anchor = Vector2.new(0.5, 0.5), position = UDim2.fromScale(0.5, 0.35), z = 5 })
+	C.bounceIn(label)
+	C.sparkleBurst(ctx.layers.popup, UDim2.fromScale(0.5, 0.35), 28)
+	task.delay(1.8, function()
+		label:Destroy()
+	end)
+end
+
 Net.MinyanReached:connect(function()
 	Sound.play("minyan")
+	celebrateMinyan()
 	if (Net.attr("Denomination", "") or "") == "" then
 		hooks.openPicker()
 	end
