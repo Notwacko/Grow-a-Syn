@@ -51,6 +51,10 @@ function Meadow.build()
 	if not Workspace:FindFirstChild("World") then
 		return
 	end
+	local old = Workspace:FindFirstChild("Meadow")
+	if old then
+		old:Destroy()
+	end
 	local rng = Random.new(20261014)
 	local frames = {}
 	for index = 1, 8 do

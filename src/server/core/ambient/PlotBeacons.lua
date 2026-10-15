@@ -32,6 +32,7 @@ local function watch(plot)
 end
 
 function PlotBeacons.build()
+	Fx.beaconFolder():ClearAllChildren()
 	local plots = Workspace:FindFirstChild("Plots")
 	if not plots then
 		return

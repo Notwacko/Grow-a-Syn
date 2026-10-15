@@ -2,6 +2,7 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Config = require(script.Parent.Config)
 local Assets = require(script.Parent.Assets)
@@ -531,6 +532,7 @@ local function greet(state, entry, who)
 	Economy.grant(who, Constants.GREET_REWARD, "greet")
 	Fx.floatText(head, "+" .. Constants.GREET_REWARD, GOLD)
 	Fx.sparkle(head - Vector3.new(0, 2, 0))
+	Fx.sound(head, Config.SOUNDS.ping, 0.7, 0.9 + state.greetCount * 0.2)
 	startWalk(state, entry)
 	state.greetCount += 1
 	CongregationService.Greeted:Fire(who, state.greetCount)
@@ -544,7 +546,18 @@ function CongregationService.spawnGuests(player)
 	state.guestsSpawned = true
 	local spawn = state.plot.NpcSpawn
 	local pad = state.plot.ClaimPad
-	local feet = Vector3.new(spawn.Position.X, spawn.Position.Y - spawn.Size.Y / 2, spawn.Position.Z)
+	local info = BuildingService.getInfo(player)
+	local feet, facing, lateral
+	if info then
+		local door = info.door.Position
+		feet = Vector3.new(door.X, info.floorTopY, door.Z) - info.forward * 10
+		facing = -info.forward
+		lateral = info.forward:Cross(Vector3.yAxis)
+	else
+		feet = Vector3.new(spawn.Position.X, spawn.Position.Y - spawn.Size.Y / 2, spawn.Position.Z)
+		facing = Vector3.new(pad.Position.X - feet.X, 0, pad.Position.Z - feet.Z)
+		lateral = spawn.CFrame.RightVector
+	end
 	local startVariant = rng:NextInteger(1, Config.CONGREGANT_VARIANTS)
 	for index = 1, Constants.TUTORIAL_GREETERS do
 		local entry = newEntry(state)
@@ -558,8 +571,8 @@ function CongregationService.spawnGuests(player)
 		CollectionService:AddTag(model, "Congregant")
 		model.Parent = state.folder
 		state.models += 1
-		local position = feet + spawn.CFrame.RightVector * ((index - 2) * 3.6)
-		local base = faceCFrame(position, Vector3.new(pad.Position.X - position.X, 0, pad.Position.Z - position.Z), yaw)
+		local position = feet + lateral * ((index - 2) * 4.4)
+		local base = faceCFrame(position, facing, yaw)
 		model:PivotTo(base)
 		idlers[entry] = { base = base }
 		local attachment = Instance.new("Attachment")
@@ -574,6 +587,29 @@ function CongregationService.spawnGuests(player)
 		prompt.MaxActivationDistance = Config.GREET_DISTANCE
 		prompt.RequiresLineOfSight = false
 		prompt.Parent = attachment
+		local marker = Instance.new("BillboardGui")
+		marker.Name = "GreetMarker"
+		marker.Size = UDim2.fromOffset(54, 54)
+		marker.StudsOffsetWorldSpace = Vector3.new(0, 3.4, 0)
+		marker.AlwaysOnTop = true
+		marker.LightInfluence = 0
+		marker.MaxDistance = 260
+		marker.Parent = attachment
+		local mark = Instance.new("TextLabel")
+		mark.BackgroundTransparency = 1
+		mark.Size = UDim2.fromScale(1, 1)
+		mark.Font = Enum.Font.FredokaOne
+		mark.Text = "!"
+		mark.TextScaled = true
+		mark.TextColor3 = GOLD
+		mark.Parent = marker
+		local outline = Instance.new("UIStroke")
+		outline.Thickness = 3.5
+		outline.Color = Color3.fromRGB(30, 30, 50)
+		outline.Parent = mark
+		TweenService:Create(marker, TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			StudsOffsetWorldSpace = Vector3.new(0, 4.6, 0),
+		}):Play()
 		prompt.Triggered:Connect(function(who)
 			greet(state, entry, who)
 		end)

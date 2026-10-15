@@ -26,6 +26,10 @@ local COLORS = {
 local SOFT = { CanCollide = false, CanQuery = false, CanTouch = false, CastShadow = false }
 
 function Balloons.build()
+	local old = Workspace:FindFirstChild("CoreBalloons")
+	if old then
+		old:Destroy()
+	end
 	local container = Instance.new("Folder")
 	container.Name = "CoreBalloons"
 	local rng = Random.new(31415)
@@ -50,14 +54,7 @@ function Balloons.build()
 
 	local parts = table.create(COUNT * 3)
 	local frames = table.create(COUNT * 3)
-	local accumulator = 0
-	RunService.Heartbeat:Connect(function(dt)
-		accumulator += dt
-		if accumulator < STEP then
-			return
-		end
-		local elapsed = accumulator
-		accumulator = 0
+	local function step(elapsed)
 		local now = os.clock()
 		for index, item in items do
 			item.angle += item.speed * elapsed
@@ -73,6 +70,20 @@ function Balloons.build()
 			frames[slot + 3] = CFrame.new(center - Vector3.new(0, item.size / 2 + 2.4 + item.size * 0.45, 0)) * tilt
 		end
 		Workspace:BulkMoveTo(parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
+	end
+	step(0)
+	if not RunService:IsRunning() then
+		return
+	end
+	local accumulator = 0
+	RunService.Heartbeat:Connect(function(dt)
+		accumulator += dt
+		if accumulator < STEP then
+			return
+		end
+		local elapsed = accumulator
+		accumulator = 0
+		step(elapsed)
 	end)
 end
 

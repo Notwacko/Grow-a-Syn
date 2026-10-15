@@ -44,6 +44,23 @@ local function celebrateMinyan(player)
 	Notify.send(player, "success", "You have a minyan! Ten people are praying together")
 end
 
+local function skipBuyIfOffline(player, state)
+	if state.buyScheduled or workspace:GetAttribute("ProgressionOnline") == true then
+		return
+	end
+	state.buyScheduled = true
+	task.delay(Config.TUTORIAL_BUY_FALLBACK_DELAY, function()
+		if states[player] ~= state or currentStep(player) ~= STEP.BUY then
+			return
+		end
+		if workspace:GetAttribute("ProgressionOnline") == true then
+			return
+		end
+		Notify.send(player, "info", "The shop is still being stocked. Keep welcoming your congregation!")
+		setStep(player, STEP.MINYAN)
+	end)
+end
+
 local function evaluate(player)
 	local state = states[player]
 	if not state then
@@ -52,7 +69,13 @@ local function evaluate(player)
 	for _ = 1, 8 do
 		local step = currentStep(player)
 		local before = step
-		if step == STEP.CLAIM_PLOT then
+		if step == STEP.WELCOME then
+			if (player:GetAttribute("PlotId") or 0) > 0 then
+				setStep(player, STEP.CLAIM_PLOT)
+			end
+		elseif step == STEP.BUY then
+			skipBuyIfOffline(player, state)
+		elseif step == STEP.CLAIM_PLOT then
 			if (player:GetAttribute("PlotId") or 0) > 0 then
 				setStep(player, STEP.GREET)
 			end

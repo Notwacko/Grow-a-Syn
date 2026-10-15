@@ -51,6 +51,10 @@ local function cloud(parent, name, position, size, rate)
 end
 
 function Motes.build()
+	local old = Workspace:FindFirstChild("CoreMotes")
+	if old then
+		old:Destroy()
+	end
 	local container = Instance.new("Folder")
 	container.Name = "CoreMotes"
 	cloud(container, "Plaza", Vector3.new(0, 16, 0), Vector3.new(Config.PLAZA_RADIUS * 2, 26, Config.PLAZA_RADIUS * 2), 34)

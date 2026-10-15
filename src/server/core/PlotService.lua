@@ -603,6 +603,10 @@ function PlotService.claim(player, index, fromPrompt)
 	local pad = plot.ClaimPad
 	Fx.confetti(pad.Position + Vector3.new(0, 3, 0), 0.8)
 	Fx.ring(pad.Position + Vector3.new(0, 0.5, 0), Config.COLORS.gold, 18)
+	if fromPrompt then
+		Fx.sound(pad.Position, Config.SOUNDS.victory, 0.8, 1)
+		Fx.fireworkShow(pad.Position + Vector3.new(0, 0, 0), 4, 42)
+	end
 	Notify.send(player, "success", "Plot claimed! Welcome to your synagogue")
 	PlotService.Claimed:Fire(player, plot, index)
 	return true
