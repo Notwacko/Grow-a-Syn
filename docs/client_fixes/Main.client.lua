@@ -127,6 +127,7 @@ local hooks = {
 
 local HUD = require(script.Parent.HUD).new(ctx, hooks)
 require(script.Parent.TierPopup).watch(ctx)
+require(script.Parent.InteriorCamera).start()
 require(script.Parent.Tutorial).new(ctx, HUD, hooks)
 
 Net.MinyanReached:connect(function()
