@@ -27,12 +27,12 @@ Monetization.products = {
 	{ key = "pet_pick_1", id = 0, robux = 149, kind = "pet", rarity = "uncommon", name = "Pick a Pet: Friendly", blurb = "Choose any Common or Uncommon pet. No luck involved." },
 	{ key = "pet_pick_2", id = 0, robux = 399, kind = "pet", rarity = "rare", name = "Pick a Pet: Special", blurb = "Choose any Rare pet or below. No luck involved." },
 	{ key = "pet_pick_3", id = 0, robux = 999, kind = "pet", rarity = "legendary", name = "Pick a Pet: Legendary", blurb = "Choose any pet in the game, including the Peacock." },
-	{ key = "cosmetic_49", id = 0, robux = 49, kind = "cosmetic", tierPrice = 49, name = "Cosmetic 49", blurb = "Unlocks one 49 Robux cosmetic." },
-	{ key = "cosmetic_99", id = 0, robux = 99, kind = "cosmetic", tierPrice = 99, name = "Cosmetic 99", blurb = "Unlocks one 99 Robux cosmetic." },
-	{ key = "cosmetic_149", id = 0, robux = 149, kind = "cosmetic", tierPrice = 149, name = "Cosmetic 149", blurb = "Unlocks one 149 Robux cosmetic." },
-	{ key = "cosmetic_249", id = 0, robux = 249, kind = "cosmetic", tierPrice = 249, name = "Cosmetic 249", blurb = "Unlocks one 249 Robux cosmetic." },
-	{ key = "cosmetic_399", id = 0, robux = 399, kind = "cosmetic", tierPrice = 399, name = "Cosmetic 399", blurb = "Unlocks one 399 Robux cosmetic." },
-	{ key = "cosmetic_799", id = 0, robux = 799, kind = "cosmetic", tierPrice = 799, name = "Cosmetic 799", blurb = "Unlocks one 799 Robux cosmetic." },
+	{ key = "cosmetic_49", id = 0, robux = 49, kind = "cosmetic", tierPrice = 49, name = "Style Unlock", blurb = "Unlocks the style item you picked in the Style tab." },
+	{ key = "cosmetic_99", id = 0, robux = 99, kind = "cosmetic", tierPrice = 99, name = "Style Unlock", blurb = "Unlocks the style item you picked in the Style tab." },
+	{ key = "cosmetic_149", id = 0, robux = 149, kind = "cosmetic", tierPrice = 149, name = "Style Unlock", blurb = "Unlocks the style item you picked in the Style tab." },
+	{ key = "cosmetic_249", id = 0, robux = 249, kind = "cosmetic", tierPrice = 249, name = "Style Unlock", blurb = "Unlocks the style item you picked in the Style tab." },
+	{ key = "cosmetic_399", id = 0, robux = 399, kind = "cosmetic", tierPrice = 399, name = "Style Unlock", blurb = "Unlocks the style item you picked in the Style tab." },
+	{ key = "cosmetic_799", id = 0, robux = 799, kind = "cosmetic", tierPrice = 799, name = "Style Unlock", blurb = "Unlocks the style item you picked in the Style tab." },
 	{ key = "starter_pack", id = 0, robux = 149, kind = "starter", minutes = 240, item = "ornament_rare", name = "New Congregation Pack", blurb = "4 hours of income, a Rare ornament and a golden kippah. Available during your first week." },
 }
 
