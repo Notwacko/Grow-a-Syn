@@ -120,6 +120,17 @@ Balance.RaritySkin = {
 	mythical = { material = Enum.Material.Foil, glow = 12, particles = 5 },
 }
 
+Balance.SlotFit = {
+	torah = { align = "bottom", maxHeight = 2.2 },
+	ark = { align = "bottom" },
+	siddur = { align = "bottom", maxHeight = 1.6 },
+	menorah = { align = "bottom" },
+	kiddush_cup = { align = "bottom", maxHeight = 1.4 },
+	chandelier = { align = "top" },
+	ornament = { align = "center" },
+	holiday_decor = { align = "bottom" },
+}
+
 Balance.RemoteCooldown = 0.25
 Balance.AutosaveSeconds = 60
 Balance.LoadRetries = 5

@@ -148,7 +148,13 @@ function ShopService.init()
 		return Guard.run(player, "buy", ShopService.buy, player, offerId)
 	end
 
-	MarketplaceService.ProcessReceipt = processReceipt
+	local receiptRouter = Link.get(ServerStorage, "Bridge", "ProgressionReceipt", "BindableFunction")
+	receiptRouter.OnInvoke = function(receipt)
+		if type(receipt) ~= "table" or not offerByProduct[receipt.ProductId] then
+			return nil
+		end
+		return processReceipt(receipt)
+	end
 end
 
 return ShopService
