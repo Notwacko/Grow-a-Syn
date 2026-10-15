@@ -1,5 +1,6 @@
 -- Client entry point: builds the ScreenGui (UIScale from viewport, safe areas), then the HUD and windows.
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -14,11 +15,11 @@ local Space = Theme.Space
 local gui = Instance.new("ScreenGui")
 gui.Name = "GrowUI"
 gui.ResetOnSpawn = false
-gui.ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets
+gui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = playerGui
 
--- UIScale: 800x450 is the design reference, never below 0.9 so 56px buttons stay >= 48px on phones
+-- UIScale: phones use 800x450 as the design reference (never below 0.9 so 56px buttons stay >= 48px); mouse + keyboard use 1280x720
 local root = C.new("Frame", { Name = "Root", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1) }, gui)
 local uiScale = C.new("UIScale", { Scale = 1 }, root)
 local resizeCallbacks = {}
@@ -30,7 +31,12 @@ end
 
 local function updateScale()
 	local a = gui.AbsoluteSize
-	local s = math.clamp(math.min(a.X / 800, a.Y / 450), 0.9, 1.6)
+	local s
+	if UserInputService.TouchEnabled then
+		s = math.clamp(math.min(a.X / 800, a.Y / 450), 0.9, 1.5)
+	else
+		s = math.clamp(math.min(a.X / 1280, a.Y / 720), 0.62, 1)
+	end
 	uiScale.Scale = s
 	root.Size = UDim2.fromScale(1 / s, 1 / s)
 	for _, cb in resizeCallbacks do

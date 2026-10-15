@@ -68,7 +68,7 @@ function Tutorial.new(ctx, hud, hooks)
 	banner = C.panel(ctx.layers.hud, {
 		name = "TutorialBanner",
 		anchor = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, Space.S + Space.XL + Space.XS + Space.XXL + Space.M),
+		position = UDim2.new(0.5, 0, 0, Space.S + Space.XXL + Space.L + Space.S),
 		size = UDim2.new(1, -(Space.Touch + Space.S) * 2 - Space.S * 2, 0, Space.Touch + Space.XL),
 		color = Color.Panel,
 	})

@@ -35,6 +35,7 @@ Contract.Attr = {
 	PlotId = "PlotId",
 	LandTier = "LandTier",
 	TutorialStep = "TutorialStep",
+	DataLoaded = "DataLoaded", -- A: set once the saved profile is applied
 	HasMinyan = "HasMinyan",
 	Denomination = "Denomination",
 	Tier = "Tier",

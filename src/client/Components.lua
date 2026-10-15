@@ -117,6 +117,10 @@ function C.button(parent, o)
 	corner(hit.Shine, Radius.S)
 	local squash = new("UIScale", { Name = "Squash", Scale = 1 }, hit)
 	local label = C.text(hit, { text = o.text or o.icon or "", size = o.textSize or (o.icon and "L" or "M"), z = 3 })
+	if o.image then
+		label.Text = ""
+		new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, Image = o.image, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.82, 0.82), ScaleType = Enum.ScaleType.Fit, ZIndex = 3 }, hit)
+	end
 
 	local self = { Root = holder, Hit = hit, Label = label, enabled = true }
 	local hovering = false
@@ -280,8 +284,12 @@ function C.pill(parent, o)
 	}, parent)
 	corner(frame, Radius.L)
 	outline(frame)
-	new("UIPadding", { PaddingLeft = UDim.new(0, Space.M), PaddingRight = UDim.new(0, Space.M) }, frame)
-	local label = C.text(frame, { text = o.text or "", size = o.textSize or "M", sizeU = UDim2.fromScale(0, 1) })
+	new("UIPadding", { PaddingLeft = UDim.new(0, o.image and Space.S or Space.M), PaddingRight = UDim.new(0, Space.M) }, frame)
+	if o.image then
+		new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, Space.XS), SortOrder = Enum.SortOrder.LayoutOrder }, frame)
+		new("ImageLabel", { Name = "Icon", BackgroundTransparency = 1, Image = o.image, Size = UDim2.fromOffset(Space.XL + Space.XS, Space.XL + Space.XS), ScaleType = Enum.ScaleType.Fit, LayoutOrder = 0 }, frame)
+	end
+	local label = C.text(frame, { text = o.text or "", size = o.textSize or "M", sizeU = UDim2.fromScale(0, 1), order = 1 })
 	label.AutomaticSize = Enum.AutomaticSize.X
 	return { Root = frame, Label = label, setText = function(_, text) label.Text = text end }
 end
@@ -414,7 +422,7 @@ function C.popup(layer, o)
 	end
 	if o.closable ~= false then
 		C.button(frame, {
-			icon = "✕",
+			text = "X",
 			color = Color.Red,
 			size = UDim2.fromOffset(Space.Tab, Space.Tab),
 			position = UDim2.new(1, -Space.Tab - Space.XS, 0, 0),

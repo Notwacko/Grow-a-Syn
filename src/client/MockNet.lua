@@ -106,6 +106,7 @@ return function(Net, newSignal)
 		PlotId = 1,
 		LandTier = 1,
 		TutorialStep = 0,
+		DataLoaded = true,
 		HasMinyan = false,
 		Denomination = "",
 		Tier = 1,

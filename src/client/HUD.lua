@@ -1,4 +1,3 @@
--- Left icon stack, right boost stack, top ladder + money, bottom progress + quick buttons.
 local TweenService = game:GetService("TweenService")
 
 local Theme = require(script.Parent.Theme)
@@ -8,162 +7,135 @@ local Format = require(script.Parent.Format)
 local Sound = require(script.Parent.Sound)
 local Contract = require(script.Parent.Contract)
 local FloatingNumbers = require(script.Parent.FloatingNumbers)
+local Icons = require(script.Parent.IconSet)
 
 local Color, Space = Theme.Color, Theme.Space
 
 local HUD = {}
 
-local SIDE_MARGIN = Space.S
-local STACK_TOP = 88
-local BOTTOM_RESERVED = 140
+local MARGIN = Space.S
+local BUTTON = 48
 
 function HUD.new(ctx, hooks)
 	local layer = ctx.layers.hud
 	local catalog = Net.getCatalog()
+	local upgrades = catalog.upgrades or {}
 	local self = { targets = {} }
 
-	---------------------------------------------------------------- top: ladder + pills
-	local top = C.new("Frame", {
-		Name = "Top",
+	local topLeft = C.new("Frame", {
+		Name = "MoneyBlock",
 		BackgroundTransparency = 1,
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, Space.S),
-		Size = UDim2.new(1, -(Space.Touch + Space.S) * 2 - Space.S * 2, 0, Space.XL + Space.XS + Space.XXL),
+		Position = UDim2.fromOffset(MARGIN, MARGIN),
+		AutomaticSize = Enum.AutomaticSize.XY,
+		Size = UDim2.new(),
 	}, layer)
-	C.new("UISizeConstraint", { MaxSize = Vector2.new(400, 1000) }, top)
-	local ladder = C.segmentedBar(top, { size = UDim2.new(1, 0, 0, Space.XL) })
-	local pills = C.row(top, {
-		position = UDim2.fromOffset(0, Space.XL + Space.XS),
-		size = UDim2.new(1, 0, 0, Space.XXL),
-		alignX = Enum.HorizontalAlignment.Center,
-		name = "Pills",
-	})
-	local moneyPill = C.pill(pills, { text = "💰 0", color = Color.Green, order = 1, textSize = "M" })
-	local stagePill = C.pill(pills, { text = "", color = Color.Purple, order = 2, textSize = "S" })
+	C.new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, topLeft)
+	local moneyPill = C.pill(topLeft, { text = "0", image = Icons.coin, color = Color.Green, order = 1, textSize = "M", name = "Money" })
+	local rate = C.text(topLeft, { text = "", size = "XS", sizeU = UDim2.new(0, 140, 0, Space.L), order = 2, alignX = Enum.TextXAlignment.Left, name = "Rate" })
 	self.targets.Money = moneyPill.Root
+	local boostPill = C.pill(topLeft, { text = "", color = Color.Orange, order = 3, textSize = "S", name = "Boost" })
+	boostPill.Root.Visible = false
+	local function refreshBoost()
+		local remaining = Net.attr("BoostEndsAt", 0) - workspace:GetServerTimeNow()
+		if remaining > 0 then
+			boostPill.Root.Visible = true
+			boostPill:setText(("x%s  %s"):format(tostring(Net.attr("BoostMult", 2)), Format.clock(remaining)))
+		else
+			boostPill.Root.Visible = false
+		end
+	end
+	local boostTimerRunning = false
+	local function startBoostTimer()
+		refreshBoost()
+		if boostTimerRunning or not boostPill.Root.Visible then
+			return
+		end
+		boostTimerRunning = true
+		task.spawn(function()
+			while boostPill.Root.Visible do
+				task.wait(1)
+				refreshBoost()
+			end
+			boostTimerRunning = false
+		end)
+	end
+	Net.onAttr("BoostEndsAt", startBoostTimer)
+	Net.onAttr("BoostMult", startBoostTimer)
+	startBoostTimer()
 	self.moneyPill = moneyPill
 
-	---------------------------------------------------------------- left stack
+	local top = C.new("Frame", {
+		Name = "Ladder",
+		BackgroundTransparency = 1,
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, MARGIN),
+		Size = UDim2.new(0, 280, 0, Space.L + Space.L),
+	}, layer)
+	local ladder = C.segmentedBar(top, { size = UDim2.new(1, 0, 0, Space.L) })
+	local stageText = C.text(top, { text = "", size = "XS", sizeU = UDim2.new(1, 0, 0, Space.L), position = UDim2.fromOffset(0, Space.L), name = "Stage" })
+
 	local left = C.new("Frame", {
 		Name = "LeftStack",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(SIDE_MARGIN, STACK_TOP),
+		Position = UDim2.fromOffset(MARGIN, MARGIN + Space.XXL + Space.XL + Space.S),
 		AutomaticSize = Enum.AutomaticSize.XY,
 		Size = UDim2.new(),
 	}, layer)
-	local grid = C.new("UIGridLayout", {
-		CellSize = UDim2.fromOffset(Space.Touch + Space.S, Space.Touch + Space.XS + Space.L),
-		CellPadding = UDim2.fromOffset(Space.XS, Space.XS),
-		FillDirection = Enum.FillDirection.Vertical,
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		FillDirectionMaxCells = 4,
-	}, left)
-	local shopBtn = C.iconButton(left, { icon = "🛒", label = "Shop", color = Color.Red, order = 1, name = "Shop", onClick = function() hooks.openShop() end })
-	local _itemsBtn = C.iconButton(left, { icon = "🎒", label = "Items", color = Color.Yellow, order = 2, name = "Items", onClick = function() hooks.openInventory() end })
-	local landBtn = C.iconButton(left, { icon = "🌳", label = "Land", color = Color.Green, order = 3, name = "Land", onClick = function() hooks.openLand() end })
-	local upgradeBtn = C.iconButton(left, { icon = "⬆", label = "Upgrade", color = Color.Purple, order = 4, name = "Upgrade", visible = false, onClick = function() hooks.openUpgrade() end })
-	self.targets.Shop = shopBtn.Root
-	self.targets.Land = landBtn.Root
-	self.targets.Upgrade = upgradeBtn.Root
-
-	local function relayout()
-		local design = ctx.designSize()
-		local cell = Space.Touch + Space.XS + Space.L + Space.XS
-		local fit = math.floor((design.Y - STACK_TOP - BOTTOM_RESERVED) / cell)
-		grid.FillDirectionMaxCells = math.clamp(fit, 2, 4)
+	C.new("UIListLayout", { Padding = UDim.new(0, Space.S), SortOrder = Enum.SortOrder.LayoutOrder }, left)
+	local function iconButton(name, image, color, order, onClick, visible, fallback)
+		local cell = C.new("Frame", {
+			Name = name,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(BUTTON, BUTTON + 4),
+			LayoutOrder = order,
+			Visible = visible ~= false,
+		}, left)
+		C.button(cell, { image = image, text = not image and fallback or nil, textSize = "S", color = color, size = UDim2.fromOffset(BUTTON, BUTTON), onClick = onClick, name = name })
+		return cell
 	end
-	ctx.onResize(relayout)
-	relayout()
+	local shop = iconButton("Shop", Icons.shop, Color.Red, 1, function()
+		hooks.openShop()
+	end, true, "Shop")
+	iconButton("Items", Icons.backpack, Color.Orange, 2, function()
+		hooks.openInventory()
+	end, true, "Items")
+	local land = iconButton("Land", Icons.land, Color.Green, 3, function()
+		hooks.openLand()
+	end, true, "Land")
+	local upgrade = iconButton("Upgrade", Icons.upgrade, Color.Purple, 4, function()
+		hooks.openUpgrade()
+	end, false, "Up")
+	self.targets.Shop = shop
+	self.targets.Land = land
+	self.targets.Upgrade = upgrade
 
-	---------------------------------------------------------------- right stack: boosts
-	local right = C.new("Frame", {
-		Name = "RightStack",
-		BackgroundTransparency = 1,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -SIDE_MARGIN, 0, STACK_TOP),
-		AutomaticSize = Enum.AutomaticSize.XY,
-		Size = UDim2.new(),
-	}, layer)
-	C.new("UIListLayout", {
-		Padding = UDim.new(0, Space.XS),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Right,
-	}, right)
-	local boostButtons = {}
-	local boostColors = { Color.Orange, Color.Red, Color.Purple }
-	for i, boost in catalog.boosts do
-		if i > 3 then
-			break
-		end
-		local b = C.boostButton(right, {
-			label = "x" .. tostring(boost.mult),
-			price = boost.robux,
-			free = boost.free,
-			color = boostColors[i],
-			order = i,
-			name = "Boost" .. i,
-			onClick = function()
-				hooks.openShop("Boosts")
-			end,
-		})
-		boostButtons[i] = { ui = b, boost = boost }
-	end
-
-	local countdownRunning = false
-	local function refreshBoosts()
-		local endsAt = Net.attr("BoostEndsAt", 0)
-		local mult = Net.attr("BoostMult", 1)
-		local remaining = endsAt - workspace:GetServerTimeNow()
-		for _, entry in boostButtons do
-			local active = remaining > 0 and entry.boost.mult == mult
-			entry.ui:setTimer(active and Format.clock(remaining) or "")
-		end
-		if remaining > 0 and not countdownRunning then
-			countdownRunning = true
-			task.spawn(function()
-				while Net.attr("BoostEndsAt", 0) - workspace:GetServerTimeNow() > 0 do
-					task.wait(1)
-					refreshBoosts()
-				end
-				countdownRunning = false
-				refreshBoosts()
-			end)
-		end
-	end
-	Net.onAttr("BoostEndsAt", refreshBoosts)
-	Net.onAttr("BoostMult", refreshBoosts)
-	refreshBoosts()
-
-	---------------------------------------------------------------- bottom
 	local bottom = C.new("Frame", {
 		Name = "Bottom",
 		BackgroundTransparency = 1,
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -Space.S),
-		Size = UDim2.new(1, -(Space.Touch + Space.S) * 2 - Space.S * 2, 0, 0),
-		AutomaticSize = Enum.AutomaticSize.Y,
+		Position = UDim2.new(0.5, 0, 1, -MARGIN),
+		Size = UDim2.new(0, 300, 0, Space.XL + Space.XS),
 	}, layer)
-	C.new("UISizeConstraint", { MaxSize = Vector2.new(400, 1000) }, bottom)
-	C.new("UIListLayout", {
-		Padding = UDim.new(0, Space.XS),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-	}, bottom)
-	local stats = C.text(bottom, { text = "", size = "S", sizeU = UDim2.new(1, 0, 0, Space.XL), order = 1, name = "Stats" })
-	local bar = C.progressBar(bottom, { size = UDim2.new(1, 0, 0, Space.XXL), color = Color.Green, name = "CongregationBar" })
-	bar.Root.LayoutOrder = 2
+	local bar = C.progressBar(bottom, { size = UDim2.fromScale(1, 1), color = Color.Green, name = "CongregationBar" })
+	bar.Label.Position = UDim2.fromOffset(Icons.people and Space.L or 0, 0)
+	if Icons.people then
+	C.new("ImageLabel", {
+		Name = "People",
+		BackgroundTransparency = 1,
+		Image = Icons.people,
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, Space.XS, 0.5, 0),
+		Size = UDim2.fromOffset(Space.XL, Space.XL),
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = 4,
+	}, bar.Root)
+	end
 	self.targets.Congregation = bar.Root
-	local quick = C.row(bottom, { size = UDim2.new(1, 0, 0, Space.Touch + Space.XS), order = 3, alignX = Enum.HorizontalAlignment.Center, name = "Quick" })
-	C.quickButton(quick, { icon = "🛍", color = Color.Red, order = 1, onClick = function() hooks.openShop("Buildings") end })
-	C.quickButton(quick, { icon = "🧩", color = Color.Yellow, order = 2, onClick = function() hooks.openInventory(true) end })
-	C.quickButton(quick, { icon = "⚡", color = Color.Blue, order = 3, onClick = function() hooks.openShop("Boosts") end })
-	local pickerQuick = C.quickButton(quick, { icon = "🕍", color = Color.Purple, order = 4, onClick = function() hooks.openPicker() end })
 
-	---------------------------------------------------------------- attribute bindings
 	local shown = Instance.new("NumberValue")
 	shown.Value = Net.attr("Money", 0)
 	local function paintMoney(value)
-		moneyPill:setText("💰 " .. Format.short(value))
+		moneyPill:setText(Format.short(value))
 	end
 	shown.Changed:Connect(paintMoney)
 	paintMoney(shown.Value)
@@ -178,22 +150,21 @@ function HUD.new(ctx, hooks)
 			pulses[key] = nil
 		end
 	end
-	-- Land / Upgrade pulse gently while the player can afford them (and the tutorial is over)
 	local function refreshAffordable()
 		local money = Net.attr("Money", 0)
 		local done = Net.attr("TutorialStep", 0) >= Contract.Step.Done
 		local landCost = Contract.LAND_COSTS[Net.attr("LandTier", 1)]
-		setPulse("land", landBtn.Root, done and Net.attr("PlotId", 0) > 0 and landCost ~= nil and money >= landCost)
-		local info = catalog.upgrades[Net.attr("Tier", 1) + 1]
-		local denChosen = (Net.attr("Denomination", "") or "") ~= ""
-		setPulse("upgrade", upgradeBtn.Root, done and denChosen and info ~= nil and info.cost ~= nil and money >= info.cost)
+		setPulse("land", land, done and Net.attr("PlotId", 0) > 0 and landCost ~= nil and money >= landCost)
+		local info = upgrades[Net.attr("Tier", 1) + 1]
+		local chosen = (Net.attr("Denomination", "") or "") ~= ""
+		setPulse("upgrade", upgrade, done and chosen and info ~= nil and info.cost ~= nil and money >= info.cost)
 	end
 	Net.onAttr("Money", function(value)
 		value = value or 0
 		TweenService:Create(shown, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Value = value }):Play()
 		if value > lastMoney then
 			FloatingNumbers.spawn("+" .. Format.short(value - lastMoney))
-			pop.Scale = 1.18
+			pop.Scale = 1.12
 			C.tween(pop, 0.3, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 		end
 		lastMoney = value
@@ -208,11 +179,12 @@ function HUD.new(ctx, hooks)
 		local n = Net.attr("Congregation", 0)
 		local max = Net.attr("MaxCongregation", 12)
 		if Net.attr("HasMinyan", false) then
-			bar:set(n, max, ("👥 %d / %d"):format(n, max), Color.Green)
+			bar:set(n, max, ("%d / %d"):format(n, max), Color.Green)
 		else
-			bar:set(n, Contract.MINYAN, ("👥 %d / %d  Minyan"):format(n, Contract.MINYAN), Color.Orange)
+			bar:set(n, Contract.MINYAN, ("%d / %d  minyan"):format(n, Contract.MINYAN), Color.Orange)
 		end
-		stats.Text = ("💰 %s/s    🪑 %d seats"):format(Format.short(Net.attr("MoneyPerSecond", 0)), max)
+		local perSecond = Net.attr("MoneyPerSecond", 0)
+		rate.Text = perSecond > 0 and ("+%s per second"):format(Format.short(perSecond)) or ""
 	end
 	local lastN = Net.attr("Congregation", 0)
 	for _, name in { "Congregation", "MaxCongregation", "HasMinyan", "MoneyPerSecond" } do
@@ -227,26 +199,16 @@ function HUD.new(ctx, hooks)
 	end
 	refreshBar()
 
-	local stopPulse
 	local function refreshLadder()
 		local denId = Net.attr("Denomination", "")
 		local den = catalog.denById[denId]
 		local has = den ~= nil
-		ladder.Root.Visible = has
-		stagePill.Root.Visible = has
-		upgradeBtn.Root.Visible = denId ~= ""
+		top.Visible = has
+		upgrade.Visible = denId ~= ""
 		if has then
 			local index = math.clamp(Net.attr("Tier", 1) - 1, 0, #den.stages)
 			ladder:setCurrent(index > 0 and index or nil)
-			stagePill:setText(index > 0 and den.stages[index] or den.name)
-		end
-		-- gently pulse the denomination shortcut while a minyan is waiting for a choice
-		local waiting = Net.attr("HasMinyan", false) and denId == ""
-		if waiting and not stopPulse then
-			stopPulse = C.pulse(pickerQuick.Root, 1.1)
-		elseif not waiting and stopPulse then
-			stopPulse()
-			stopPulse = nil
+			stageText.Text = index > 0 and den.stages[index] or den.name
 		end
 	end
 	for _, name in { "Denomination", "Tier", "HasMinyan" } do
