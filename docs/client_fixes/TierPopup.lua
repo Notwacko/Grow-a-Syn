@@ -19,15 +19,25 @@ function TierPopup.watch(ctx)
 		task.wait(1.5)
 		local stable = { seats = Net.attr("MaxCongregation", 12), mps = Net.attr("MoneyPerSecond", 0) }
 		local lastTier = Net.attr("Tier", 1)
+		local pending = false
+		local function remember()
+			if not pending then
+				stable = { seats = Net.attr("MaxCongregation", 12), mps = Net.attr("MoneyPerSecond", 0) }
+			end
+		end
+		Net.onAttr("MoneyPerSecond", remember)
+		Net.onAttr("MaxCongregation", remember)
 		Net.onAttr("Tier", function(tier)
 			tier = tier or 1
 			local before = lastTier
 			lastTier = tier
 			if tier <= before then
-				stable = { seats = Net.attr("MaxCongregation", 12), mps = Net.attr("MoneyPerSecond", 0) }
+				remember()
 				return
 			end
+			pending = true
 			task.delay(0.6, function()
+				pending = false
 				local seats = Net.attr("MaxCongregation", stable.seats)
 				local mps = Net.attr("MoneyPerSecond", stable.mps)
 				local den = catalog.denById[Net.attr("Denomination", "")]

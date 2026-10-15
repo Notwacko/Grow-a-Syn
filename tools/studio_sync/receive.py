@@ -7,13 +7,25 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TARGET = os.path.join(ROOT, "src", "models", "core")
 NAME = re.compile(r"^/save/([A-Za-z0-9_]+)\.rbxm$")
+TEXT_NAME = re.compile(r"^/text/([A-Za-z0-9_]+)\.lua$")
+TEXT_TARGET = os.path.join(ROOT, "src", "client")
 MAX_BYTES = 20 * 1024 * 1024
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
-        match = NAME.match(self.path)
         length = int(self.headers.get("Content-Length", "0"))
+        text_match = TEXT_NAME.match(self.path)
+        if text_match and 0 < length <= MAX_BYTES:
+            body = self.rfile.read(length)
+            os.makedirs(TEXT_TARGET, exist_ok=True)
+            with open(os.path.join(TEXT_TARGET, text_match.group(1) + ".lua"), "wb") as handle:
+                handle.write(body)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(str(len(body)).encode())
+            return
+        match = NAME.match(self.path)
         if not match or length <= 0 or length > MAX_BYTES:
             self.send_response(400)
             self.end_headers()
