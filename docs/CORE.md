@@ -41,3 +41,8 @@ All numbers are in `src/server/core/Config.lua` (land costs, arrival timing, con
 
 ## Model pipeline
 Blender at 1 unit = 1 stud, FBX to `art/exports/` (not committed), Import 3D in Studio, run the fixer, right click and Save to File as `src/models/core/<name>.rbxm`, commit the `.rbxm`.
+
+## Getting the code into Studio without Rojo
+`tools/studio_sync/serve.sh` copies only `src/` to a temp folder (never `.git`) and serves it on 127.0.0.1:8765. `tools/studio_sync/sync.lua` is run through the Studio MCP `execute_luau` (Edit mode). It fetches the file list, then creates or updates every script with Rojo's layout (`src/shared` to `ReplicatedStorage.Shared`, `src/server` to `ServerScriptService.Server`, `src/models` to `ReplicatedStorage.Models`) and puts `HttpService.HttpEnabled` back to its old value. Re-run both after any repo change. The repo stays the source of truth. Save the place afterwards (Ctrl+S) so the scripts persist in the file.
+
+Note for tests: `execute_luau` runs in its own script context, so `require` of a core module there creates a separate copy. Drive the game through remotes, attributes and prompts instead (client `RE_*` remotes, the E key through `user_keyboard_input`).

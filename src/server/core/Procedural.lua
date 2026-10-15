@@ -460,9 +460,10 @@ function Procedural.building(tier)
 	end
 	if tier >= 4 then
 		local dome = math.min(shellW * (0.3 + 0.05 * (tier - 4)), 26)
-		cylinder(visual, "DomeDrum", dome * 0.8, 3, CFrame.new(0, roofTop + 1.5, (zf + zb) / 2), style.wall)
-		ball(visual, "Dome", dome, CFrame.new(0, roofTop + 3 + dome * 0.18, (zf + zb) / 2), style.trim, Enum.Material.Neon)
-		ball(visual, "DomeFinial", 1.4, CFrame.new(0, roofTop + 3 + dome * 0.6, (zf + zb) / 2), rgb(255, 255, 255), Enum.Material.Neon)
+		local drumHeight = 4
+		cylinder(visual, "DomeDrum", dome, drumHeight, CFrame.new(0, roofTop + drumHeight / 2, (zf + zb) / 2), style.wall)
+		ball(visual, "Dome", dome, CFrame.new(0, roofTop + drumHeight, (zf + zb) / 2), style.trim, Enum.Material.Metal)
+		ball(visual, "DomeFinial", 1.4, CFrame.new(0, roofTop + drumHeight + dome / 2 + 0.4, (zf + zb) / 2), rgb(255, 255, 255), Enum.Material.Neon)
 	end
 	if tier >= 6 then
 		for _, side in { -1, 1 } do

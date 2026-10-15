@@ -131,6 +131,12 @@ local function buildSign(world)
 end
 
 function WorldService.build()
+	for _, name in { "Baseplate", "SpawnLocation" } do
+		local leftover = Workspace:FindFirstChild(name)
+		if leftover and leftover:IsA("BasePart") then
+			leftover:Destroy()
+		end
+	end
 	local world = Workspace:FindFirstChild("World")
 	if world then
 		world:Destroy()
