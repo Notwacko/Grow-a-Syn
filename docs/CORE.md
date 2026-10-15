@@ -46,3 +46,10 @@ Blender at 1 unit = 1 stud, FBX to `art/exports/` (not committed), Import 3D in 
 `tools/studio_sync/serve.sh` copies only `src/` to a temp folder (never `.git`) and serves it on 127.0.0.1:8765. `tools/studio_sync/sync.lua` is run through the Studio MCP `execute_luau` (Edit mode). It fetches the file list, then creates or updates every script with Rojo's layout (`src/shared` to `ReplicatedStorage.Shared`, `src/server` to `ServerScriptService.Server`, `src/models` to `ReplicatedStorage.Models`) and puts `HttpService.HttpEnabled` back to its old value. Re-run both after any repo change. The repo stays the source of truth. Save the place afterwards (Ctrl+S) so the scripts persist in the file.
 
 Note for tests: `execute_luau` runs in its own script context, so `require` of a core module there creates a separate copy. Drive the game through remotes, attributes and prompts instead (client `RE_*` remotes, the E key through `user_keyboard_input`).
+
+## Studio importer scale (learned the hard way)
+Studio's Import 3D reads these FBX files in centimeters, so people, props and accessories arrive 100 times too big, and anything over 2048 studs (all the buildings) is clamped to 2048 by a different factor per file. Buildings are therefore fixed per model with `9 / Door size` (every Door marker is 6 x 1 x 9), and everything else is multiplied by 0.01. Both are in `tools/studio_sync/fix_imported.lua`, which also colors parts from their names, builds the Seats and Slots folders, makes the accessories and files the results in `ReplicatedStorage.Models.core`.
+
+Imported models keep a baked model scale, so always scale them with `model:ScaleTo(model:GetScale() * k)`. Calling `ScaleTo(k)` alone resets them to the raw 100 times size.
+
+`tools/studio_sync/receive.py` plus `SerializationService` was used to export the fixed models back to `src/models/core/*.rbxm`.

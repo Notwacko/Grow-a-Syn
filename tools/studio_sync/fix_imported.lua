@@ -74,7 +74,7 @@ local function makeFolder(model, name)
 	return folder
 end
 
-local function fixBuilding(name, model, globalFactor)
+local function fixBuilding(name, model)
 	for _, part in allParts(model) do
 		part.Anchored = true
 	end
@@ -112,9 +112,8 @@ local function fixBuilding(name, model, globalFactor)
 	end
 	model.PrimaryPart = floor
 	floor.PivotOffset = CFrame.new()
-	if math.abs(globalFactor - 1) > 0.02 then
-		model:ScaleTo(model:GetScale() * globalFactor)
-	end
+	local factor = DOOR_HEIGHT / math.max(door.Size.X, door.Size.Y, door.Size.Z)
+	model:ScaleTo(model:GetScale() * factor)
 	note(name, string.format("seats=%d slots=%d floor=%s doorH=%.2f", seatCount, slotCount, tostring(floor.Size), math.max(door.Size.X, door.Size.Y, door.Size.Z)))
 end
 
@@ -166,15 +165,7 @@ local coreFolder = modelsRoot:FindFirstChild("core") or Instance.new("Folder")
 coreFolder.Name = "core"
 coreFolder.Parent = modelsRoot
 
-local globalFactor = 1
-local starter = Workspace:FindFirstChild("starter")
-if starter then
-	local door = starter:FindFirstChild("Door", true)
-	if door then
-		globalFactor = DOOR_HEIGHT / math.max(door.Size.X, door.Size.Y, door.Size.Z)
-	end
-end
-report._globalFactor = { tostring(globalFactor) }
+local CM_TO_STUDS = 0.01
 
 for _, name in NAMES do
 	local model = Workspace:FindFirstChild(name)
@@ -185,20 +176,20 @@ for _, name in NAMES do
 		note(name, "colored=" .. colored)
 		local result = model
 		if name == "starter" or string.match(name, "^ashkenazi_T%d$") then
-			fixBuilding(name, model, globalFactor)
+			fixBuilding(name, model)
 		elseif string.match(name, "^congregant_%d$") then
 			for _, part in allParts(model) do
 				part.Anchored = true
 				part.CanCollide = false
 			end
-			if math.abs(globalFactor - 1) > 0.02 then
-				model:ScaleTo(model:GetScale() * globalFactor)
-			end
+			model:ScaleTo(model:GetScale() * CM_TO_STUDS)
 			local _, size = model:GetBoundingBox()
 			note(name, string.format("height=%.2f", size.Y))
 		elseif name == "kippah" then
+			model:ScaleTo(model:GetScale() * CM_TO_STUDS)
 			result = buildAccessory(name, model, "HatAttachment")
 		elseif name == "tallit" then
+			model:ScaleTo(model:GetScale() * CM_TO_STUDS)
 			result = buildAccessory(name, model, "NeckAttachment")
 		else
 			local biggest, volume = nil, 0
@@ -210,9 +201,7 @@ for _, name in NAMES do
 				end
 			end
 			model.PrimaryPart = biggest
-			if math.abs(globalFactor - 1) > 0.02 then
-				model:ScaleTo(model:GetScale() * globalFactor)
-			end
+			model:ScaleTo(model:GetScale() * CM_TO_STUDS)
 			local _, size = model:GetBoundingBox()
 			note(name, string.format("size=%s", tostring(size)))
 		end
