@@ -161,6 +161,8 @@ local function placeDecor(parent, frame, list, delayStep)
 	return models
 end
 
+local FENCE_SEGMENT = 8
+
 local function railFence(folder, frame, ax, az, bx, bz)
 	local a = Vector3.new(ax, 0, az)
 	local b = Vector3.new(bx, 0, bz)
@@ -171,12 +173,27 @@ local function railFence(folder, frame, ax, az, bx, bz)
 	local mid = (a + b) / 2
 	local direction = (b - a).Unit
 	local cframe = frame * CFrame.lookAt(mid, mid + direction)
-	place(folder, "RailLow", Vector3.new(0.5, 0.6, length), cframe * CFrame.new(0, 1.3, 0), Config.COLORS.wood)
-	place(folder, "RailHigh", Vector3.new(0.5, 0.6, length), cframe * CFrame.new(0, 2.8, 0), Config.COLORS.wood)
-	local posts = math.max(1, math.round(length / 8))
-	for i = 0, posts do
-		local point = a:Lerp(b, i / posts)
-		place(folder, "Post", Vector3.new(0.9, 4, 0.9), frame * CFrame.new(point.X, 2, point.Z), Config.COLORS.wood)
+	local count = math.max(1, math.round(length / FENCE_SEGMENT))
+	local spacing = length / count
+	local wall = place(folder, "FenceWall", Vector3.new(0.6, 4, length), cframe * CFrame.new(0, 2, 0), Config.COLORS.wood, nil, { Transparency = 1, CanQuery = false, CastShadow = false })
+	wall.Name = "FenceWall"
+	if Props.has("fence") then
+		local lookAlong = CFrame.lookAt(Vector3.zero, direction)
+		local across = lookAlong * CFrame.Angles(0, math.pi / 2, 0)
+		for i = 0, count - 1 do
+			local point = a:Lerp(b, (i + 0.5) / count)
+			local segment = Props.make("fence")
+			segment:ScaleTo(segment:GetScale() * spacing / FENCE_SEGMENT)
+			segment:PivotTo(frame * CFrame.new(point) * across)
+			segment.Parent = folder
+		end
+	else
+		place(folder, "RailLow", Vector3.new(0.5, 0.6, length), cframe * CFrame.new(0, 1.3, 0), Config.COLORS.wood)
+		place(folder, "RailHigh", Vector3.new(0.5, 0.6, length), cframe * CFrame.new(0, 2.8, 0), Config.COLORS.wood)
+		for i = 0, count do
+			local point = a:Lerp(b, i / count)
+			place(folder, "Post", Vector3.new(0.9, 4, 0.9), frame * CFrame.new(point.X, 2, point.Z), Config.COLORS.wood)
+		end
 	end
 end
 
@@ -195,8 +212,14 @@ local function buildFence(plot, frame, tier)
 	railFence(folder, frame, bounds.x1, 0, bounds.x1, bounds.z2)
 	railFence(folder, frame, bounds.x2, 0, bounds.x2, bounds.z2)
 	for _, side in { -1, 1 } do
-		place(folder, "GatePillar", Vector3.new(2.2, 7, 2.2), frame * CFrame.new(side * gate, 3.5, 0), Config.COLORS.stone)
-		place(folder, "GateCap", Vector3.new(3, 0.8, 3), frame * CFrame.new(side * gate, 7.4, 0), Config.COLORS.gold, Enum.Material.Neon)
+		local pillar = Props.place(folder, "gate_pillar", frame * CFrame.new(side * gate, 0, 0), "gate_pillar")
+		if not pillar then
+			place(folder, "GatePillar", Vector3.new(2.2, 7, 2.2), frame * CFrame.new(side * gate, 3.5, 0), Config.COLORS.stone)
+			place(folder, "GateCap", Vector3.new(3, 0.8, 3), frame * CFrame.new(side * gate, 7.4, 0), Config.COLORS.gold, Enum.Material.Neon)
+		else
+			local block = place(folder, "GateBlock", Vector3.new(2.6, 7, 2.6), frame * CFrame.new(side * gate, 3.5, 0), Config.COLORS.stone, nil, { Transparency = 1, CanQuery = false, CastShadow = false })
+			block.Name = "GateBlock"
+		end
 	end
 	folder.Parent = plot
 end
@@ -308,6 +331,12 @@ local function ensurePad(plot, index, frame)
 	end
 	if not pad:FindFirstChild("PlotSign") then
 		buildSign(pad, index)
+	end
+	if not plot:FindFirstChild("PadRing") then
+		local ring = Props.place(plot, "padring", frame * CFrame.new(Config.CLAIM_PAD_LOCAL.X, 0.5, Config.CLAIM_PAD_LOCAL.Z), "padring")
+		if ring then
+			ring.Name = "PadRing"
+		end
 	end
 	local prompt = pad:FindFirstChildOfClass("ProximityPrompt")
 	prompt.Triggered:Connect(function(player)
@@ -432,9 +461,18 @@ local function applyLand(plot, tier, animate)
 			stripes(group, frame, region.x1, region.x2, region.z1, region.z2, 0)
 			local flagColor = FLAG_COLORS[t]
 			local flagX, flagZ = cx, region.z2 - 4
-			place(group, "FlagPole", Vector3.new(0.6, 14, 0.6), frame * CFrame.new(flagX, 7, flagZ), Config.COLORS.woodDark)
-			place(group, "Flag", Vector3.new(6, 3.4, 0.3), frame * CFrame.new(flagX + 3.2, 12, flagZ), flagColor, Enum.Material.SmoothPlastic, { CanCollide = false })
-			place(group, "FlagTop", Vector3.new(1.2, 1.2, 1.2), frame * CFrame.new(flagX, 14.4, flagZ), Config.COLORS.gold, Enum.Material.Neon, { Shape = Enum.PartType.Ball, CanCollide = false })
+			local flag = Props.place(group, "flag", frame * CFrame.new(flagX, 0, flagZ), "flag")
+			if flag then
+				for _, part in flag:GetDescendants() do
+					if part:IsA("BasePart") and part.Name == "Accent" then
+						part.Color = flagColor
+					end
+				end
+			else
+				place(group, "FlagPole", Vector3.new(0.6, 14, 0.6), frame * CFrame.new(flagX, 7, flagZ), Config.COLORS.woodDark)
+				place(group, "Flag", Vector3.new(6, 3.4, 0.3), frame * CFrame.new(flagX + 3.2, 12, flagZ), flagColor, Enum.Material.SmoothPlastic, { CanCollide = false })
+				place(group, "FlagTop", Vector3.new(1.2, 1.2, 1.2), frame * CFrame.new(flagX, 14.4, flagZ), Config.COLORS.gold, Enum.Material.Neon, { Shape = Enum.PartType.Ball, CanCollide = false })
+			end
 			local decorFolder = Instance.new("Folder")
 			decorFolder.Name = "Decor"
 			decorFolder.Parent = group
@@ -446,6 +484,23 @@ local function applyLand(plot, tier, animate)
 						TweenService:Create(child, TweenInfo.new(0.9, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
 							CFrame = child.CFrame * CFrame.new(0, 14, 0),
 						}):Play()
+					elseif child:IsA("Model") then
+						local final = child:GetPivot()
+						child:PivotTo(final * CFrame.new(0, -14, 0))
+						task.spawn(function()
+							for step = 1, 18 do
+								if not child.Parent then
+									return
+								end
+								local t = step / 18
+								local eased = 1 + 2.7 * (t - 1) ^ 3 + 1.7 * (t - 1) ^ 2
+								child:PivotTo(final * CFrame.new(0, -14 * (1 - eased), 0))
+								task.wait(0.05)
+							end
+							if child.Parent then
+								child:PivotTo(final)
+							end
+						end)
 					end
 				end
 				TweenService:Create(strip, TweenInfo.new(0.9, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = target }):Play()

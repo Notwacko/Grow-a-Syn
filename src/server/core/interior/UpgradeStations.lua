@@ -7,6 +7,7 @@ local Notify = require(core.Notify)
 local Fx = require(core.Fx)
 local Format = require(core.Format)
 local Procedural = require(core.Procedural)
+local Assets = require(core.Assets)
 local UpgradeService = require(core.UpgradeService)
 local Catalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
 
@@ -21,6 +22,12 @@ local GOLD = Color3.fromRGB(255, 214, 80)
 local PIP_OFF = Color3.fromRGB(96, 96, 112)
 
 local place = Procedural.place
+
+local STATION_MODEL = {
+	welcome_table = "station_welcome",
+	kiddush_table = "station_kiddush",
+	membership_desk = "station_desk",
+}
 
 local function colorOf(definition)
 	local c = definition.color
@@ -132,18 +139,52 @@ local function buildStation(context, definition, lateral)
 	local base = Vector3.new(worldPosition.X, info.floorTopY, worldPosition.Z)
 	local cf = CFrame.lookAt(base, base + frame.LookVector)
 	local color = colorOf(definition)
-	local model = Instance.new("Model")
-	model.Name = "Station_" .. definition.id
-	model:SetAttribute("UpgradeId", definition.id)
-	place(model, "Base", Vector3.new(3.2, 2.4, 2.2), cf * CFrame.new(0, 1.2, 0), Config.COLORS.woodDark)
-	local top = place(model, "Top", Vector3.new(3.6, 0.4, 2.6), cf * CFrame.new(0, 2.6, 0), color)
-	place(model, "Riser", Vector3.new(3.2, 2.4, 0.35), cf * CFrame.new(0, 4.0, 1.0), color)
+	local model, top
 	local pips = {}
-	for index = 1, definition.maxLevel do
-		local offset = (index - (definition.maxLevel + 1) / 2) * 0.55
-		pips[index] = place(model, "Pip" .. index, Vector3.new(0.45, 0.45, 0.2), cf * CFrame.new(offset, 4.7, 0.76), PIP_OFF, nil, { CanCollide = false })
+	local source = STATION_MODEL[definition.id] and Assets.get(STATION_MODEL[definition.id])
+	if source and source:IsA("Model") then
+		model = source
+		model.Name = "Station_" .. definition.id
+		Assets.setPassive(model)
+		model:PivotTo(cf)
+		top = model:FindFirstChild("Top", true)
+		for index = 1, definition.maxLevel do
+			local marker = model:FindFirstChild("Pip" .. index, true)
+			if marker then
+				local pip = place(model, "Pip" .. index, Vector3.one * 0.42, marker.CFrame, PIP_OFF, nil, {
+					Shape = Enum.PartType.Ball,
+					CanCollide = false,
+					CanQuery = false,
+					CanTouch = false,
+					CastShadow = false,
+				})
+				pips[index] = pip
+				marker:Destroy()
+			end
+		end
+		place(model, "Base", Vector3.new(3.2, 2.4, 2.2), cf * CFrame.new(0, 1.2, 0), Config.COLORS.woodDark, nil, {
+			Transparency = 1,
+			CanQuery = false,
+			CastShadow = false,
+		})
 	end
-	decorate(model, definition, cf, color)
+	if not top or not top:IsA("BasePart") then
+		if model then
+			model:Destroy()
+		end
+		pips = {}
+		model = Instance.new("Model")
+		model.Name = "Station_" .. definition.id
+		place(model, "Base", Vector3.new(3.2, 2.4, 2.2), cf * CFrame.new(0, 1.2, 0), Config.COLORS.woodDark)
+		top = place(model, "Top", Vector3.new(3.6, 0.4, 2.6), cf * CFrame.new(0, 2.6, 0), color)
+		place(model, "Riser", Vector3.new(3.2, 2.4, 0.35), cf * CFrame.new(0, 4.0, 1.0), color)
+		for index = 1, definition.maxLevel do
+			local offset = (index - (definition.maxLevel + 1) / 2) * 0.55
+			pips[index] = place(model, "Pip" .. index, Vector3.new(0.45, 0.45, 0.2), cf * CFrame.new(offset, 4.7, 0.76), PIP_OFF, nil, { CanCollide = false })
+		end
+		decorate(model, definition, cf, color)
+	end
+	model:SetAttribute("UpgradeId", definition.id)
 	local crown = Procedural.cylinder(model, "Crown", 3.4, 0.3, cf * CFrame.new(0, 6.1, 0.2), GOLD, Enum.Material.Neon)
 	crown.Transparency = 1
 	for _, part in model:GetDescendants() do
@@ -151,6 +192,8 @@ local function buildStation(context, definition, lateral)
 			part.CanCollide = part.Name == "Base"
 		end
 	end
+	top.Transparency = 1
+	top.CanQuery = true
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.HoldDuration = 0.5
 	prompt.MaxActivationDistance = 4.2

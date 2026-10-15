@@ -1,3 +1,5 @@
+local Assets = require(script.Parent.Assets)
+
 local OutfitBuilder = {}
 
 local function rgb(r, g, b)
@@ -204,12 +206,124 @@ local GEAR = {
 	tallit_gold = { gear = "tallit", colors = { Stripe = C.gold } },
 }
 
+local REFERENCE_HEIGHT = {
+	Head = 1.202,
+	UpperTorso = 1.901,
+	LowerTorso = 0.632,
+	LeftUpperArm = 1.213,
+	RightUpperArm = 1.213,
+	LeftLowerArm = 1.161,
+	RightLowerArm = 1.161,
+	LeftLowerLeg = 1.263,
+	RightLowerLeg = 1.263,
+}
+
+local NAVY = rgb(47, 62, 122)
+local MODEL_PIECES = {
+	gear_kippah = { model = "ofit_kippah", colors = { Base = NAVY, Mid = NAVY, Top = rgb(74, 94, 168) } },
+	kippah_rainbow = { model = "ofit_kippah", colors = { Base = C.red, Mid = C.yellow, Top = C.blue } },
+	kippah_navy = { model = "ofit_kippah", colors = { Base = C.navy, Mid = C.navy, Top = rgb(60, 82, 150) } },
+	kippah_velvet = { model = "ofit_kippah", colors = { Base = C.velvet, Mid = C.velvet, Top = rgb(44, 40, 58) } },
+	kippah_knit = { model = "ofit_kippah_knit", colors = {} },
+	fedora_black = { model = "ofit_hat_fedora", colors = {} },
+	hat_black_wide = { model = "ofit_hat_wide", colors = {} },
+	hat_modest = { model = "ofit_hat_modest", colors = { Hat = C.charcoal, Band = C.gray } },
+	shtreimel = { model = "ofit_shtreimel", colors = {} },
+	tichel_blue = { model = "ofit_tichel", colors = {} },
+	tichel_black = { model = "ofit_tichel", colors = { Cloth = C.charcoal, Accent = C.black } },
+	tichel_silk = { model = "ofit_tichel", colors = { Cloth = C.cream, Accent = C.gold } },
+	beard = { model = "ofit_beard", colors = { Hair = C.hair } },
+	peyot = { model = "ofit_peyot", colors = { Hair = C.hair } },
+	blazer_gray = { model = "ofit_jacket_open", colors = { Cloth = C.gray, ClothDark = rgb(88, 92, 106) } },
+	jacket_navy = { model = "ofit_jacket_closed", colors = {} },
+	jacket_black = { model = "ofit_jacket_closed", colors = { Cloth = C.black, ClothDark = rgb(14, 14, 20) } },
+	jacket_velvet = { model = "ofit_jacket_closed", colors = { Cloth = C.plum, ClothDark = rgb(52, 28, 72) } },
+	tie_blue = { model = "ofit_tie", colors = {} },
+	kapote_black = { model = "ofit_coat_long", colors = { Cloth = C.black, ClothDark = rgb(14, 14, 20) }, hide = { Stripe = true, Accent = true } },
+	bekishe_silk = { model = "ofit_coat_long", colors = { Cloth = rgb(30, 28, 44), ClothDark = rgb(20, 18, 32) } },
+	gartel_black = { model = "ofit_gartel", colors = { Belt = rgb(52, 52, 66) } },
+	gartel_white = { model = "ofit_gartel", colors = { Belt = C.white } },
+	tzitzit = { model = "ofit_tzitzit", colors = {} },
+	socks_white = { model = "ofit_socks", colors = {} },
+	skirt_gray = { model = "ofit_skirt_long", colors = { Cloth = C.gray } },
+	skirt_navy = { model = "ofit_skirt_long", colors = {} },
+	skirt_black = { model = "ofit_skirt_long", colors = { Cloth = C.black, Band = C.charcoal } },
+	gear_tallit = { model = "ofit_tallit", colors = {} },
+	tallit_sky = { model = "ofit_tallit", colors = { Stripe = C.sky } },
+	tallit_classic = { model = "ofit_tallit", colors = { Stripe = C.black } },
+	tallit_gold = { model = "ofit_tallit", colors = { Stripe = C.gold } },
+}
+
+local modelCache = {}
+
+local function modelAvailable(name)
+	local known = modelCache[name]
+	if known == nil then
+		local probe = Assets.get(name)
+		known = probe ~= nil
+		if probe then
+			probe:Destroy()
+		end
+		modelCache[name] = known
+	end
+	return known
+end
+
+local function usesModel(pieceId)
+	local spec = MODEL_PIECES[pieceId]
+	return spec ~= nil and modelAvailable(spec.model)
+end
+
 function OutfitBuilder.gearFor(pieceId)
+	if usesModel(pieceId) then
+		return nil
+	end
 	return GEAR[pieceId]
 end
 
 function OutfitBuilder.has(pieceId)
-	return library[pieceId] ~= nil or GEAR[pieceId] ~= nil
+	return library[pieceId] ~= nil or GEAR[pieceId] ~= nil or usesModel(pieceId)
+end
+
+local function attachModel(character, folder, pieceId, spec)
+	local source = Assets.get(spec.model)
+	if not source then
+		return false
+	end
+	local attached = false
+	for _, part in source:GetDescendants() do
+		if part:IsA("BasePart") then
+			local bodyName = part:GetAttribute("Body")
+			local key = part:GetAttribute("Key")
+			local offset = part:GetAttribute("Offset")
+			local body = bodyName and character:FindFirstChild(bodyName)
+			if body and body:IsA("BasePart") and typeof(offset) == "Vector3" and not (spec.hide and spec.hide[key]) then
+				local factor = math.clamp(body.Size.Y / (REFERENCE_HEIGHT[bodyName] or body.Size.Y), 0.55, 1.8)
+				local copy = part:Clone()
+				copy.Name = pieceId
+				copy.Size = part.Size * factor
+				copy.Anchored = false
+				copy.Massless = true
+				copy.CanCollide = false
+				copy.CanQuery = false
+				copy.CanTouch = false
+				copy.CastShadow = false
+				local color = spec.colors[key]
+				if color then
+					copy.Color = color
+				end
+				copy.CFrame = body.CFrame * CFrame.new(offset * factor)
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = body
+				weld.Part1 = copy
+				weld.Parent = copy
+				copy.Parent = folder
+				attached = true
+			end
+		end
+	end
+	source:Destroy()
+	return attached
 end
 
 function OutfitBuilder.apply(character, pieceIds)
@@ -222,8 +336,13 @@ function OutfitBuilder.apply(character, pieceIds)
 	local torso = character:FindFirstChild("UpperTorso")
 	local scale = torso and math.clamp(torso.Size.Y / 1.698, 0.5, 2) or 1
 	for _, id in pieceIds do
+		local modelSpec = MODEL_PIECES[id]
+		local done = false
+		if modelSpec and modelAvailable(modelSpec.model) then
+			done = attachModel(character, folder, id, modelSpec)
+		end
 		local specs = library[id]
-		if specs then
+		if specs and not done then
 			for _, spec in specs do
 				local body = character:FindFirstChild(spec.part)
 				if body and body:IsA("BasePart") then

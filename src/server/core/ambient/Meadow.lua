@@ -74,9 +74,17 @@ function Meadow.build()
 		return nil
 	end
 
-	for _ = 1, CLUSTERS do
+	local wildflowers = Props.has("wildflower")
+	for _ = 1, wildflowers and 110 or CLUSTERS do
 		local center = sample(0)
-		if center then
+		if center and wildflowers then
+			local patch = Props.make("wildflower", "wildflower")
+			if patch then
+				patch:ScaleTo(patch:GetScale() * rng:NextNumber(0.9, 1.5))
+				patch:PivotTo(CFrame.new(center) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0))
+				patch.Parent = container
+			end
+		elseif center then
 			for _ = 1, PER_CLUSTER do
 				local x = center.X + rng:NextNumber(-7, 7)
 				local z = center.Z + rng:NextNumber(-7, 7)
@@ -87,11 +95,25 @@ function Meadow.build()
 		end
 	end
 
-	for _ = 1, ROCKS do
+	for index = 1, ROCKS do
 		local point = sample(0)
 		if point then
-			local size = Vector3.new(rng:NextNumber(2, 5), rng:NextNumber(1.4, 3), rng:NextNumber(2, 5))
-			place(container, "Rock", size, CFrame.new(point.X, size.Y / 2 - 0.3, point.Z) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(0, 6.28), rng:NextNumber(-0.3, 0.3)), ROCK, nil, SOFT)
+			local rock = Props.make("rock", "rock")
+			local bush = nil
+			if rock and index % 3 == 0 then
+				rock:Destroy()
+				rock = nil
+				bush = Props.make("bush", "bush")
+			end
+			local model = rock or bush
+			if model then
+				model:ScaleTo(model:GetScale() * rng:NextNumber(0.8, 1.6))
+				model:PivotTo(CFrame.new(point) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0))
+				model.Parent = container
+			else
+				local size = Vector3.new(rng:NextNumber(2, 5), rng:NextNumber(1.4, 3), rng:NextNumber(2, 5))
+				place(container, "Rock", size, CFrame.new(point.X, size.Y / 2 - 0.3, point.Z) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(0, 6.28), rng:NextNumber(-0.3, 0.3)), ROCK, nil, SOFT)
+			end
 		end
 	end
 

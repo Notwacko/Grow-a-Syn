@@ -4,6 +4,7 @@ local Guard = require(core.Guard)
 local Notify = require(core.Notify)
 local Fx = require(core.Fx)
 local Procedural = require(core.Procedural)
+local Assets = require(core.Assets)
 local CosmeticsService = require(core.CosmeticsService)
 
 local Wardrobe = {
@@ -78,16 +79,36 @@ function Wardrobe.build(context)
 	local worldPosition = (frame * CFrame.new(door.X + LATERAL, 0, door.Z + DEPTH_INSIDE)).Position
 	local base = Vector3.new(worldPosition.X, info.floorTopY, worldPosition.Z)
 	local cf = CFrame.lookAt(base, base + frame.LookVector)
-	local model = Instance.new("Model")
-	model.Name = "Station_wardrobe"
-	place(model, "Base", Vector3.new(3.4, 0.7, 2.0), cf * CFrame.new(0, 0.35, 0.2), Config.COLORS.woodDark)
-	place(model, "Frame", Vector3.new(3.2, 7.2, 0.4), cf * CFrame.new(0, 4.3, 0.95), Config.COLORS.wood)
-	local glass = place(model, "Glass", Vector3.new(2.7, 6.4, 0.15), cf * CFrame.new(0, 4.3, 0.68), Color3.fromRGB(200, 236, 255), Enum.Material.Glass, {
-		Transparency = 0.3,
-		Reflectance = 0.3,
-	})
-	place(model, "Crest", Vector3.new(3.5, 0.5, 0.7), cf * CFrame.new(0, 8.1, 0.95), Config.COLORS.gold)
-	Procedural.ball(model, "Jewel", 0.9, cf * CFrame.new(0, 8.7, 0.95), GOLD, Enum.Material.Neon)
+	local model, glass
+	local source = Assets.get("station_mirror")
+	if source and source:IsA("Model") then
+		model = source
+		model.Name = "Station_wardrobe"
+		Assets.setPassive(model)
+		model:PivotTo(cf)
+		glass = model:FindFirstChild("Top", true)
+		place(model, "Base", Vector3.new(3.4, 0.7, 2.0), cf * CFrame.new(0, 0.35, 0.2), Config.COLORS.woodDark, nil, {
+			Transparency = 1,
+			CanQuery = false,
+			CastShadow = false,
+		})
+	end
+	if not glass or not glass:IsA("BasePart") then
+		if model then
+			model:Destroy()
+		end
+		model = Instance.new("Model")
+		model.Name = "Station_wardrobe"
+		place(model, "Base", Vector3.new(3.4, 0.7, 2.0), cf * CFrame.new(0, 0.35, 0.2), Config.COLORS.woodDark)
+		place(model, "Frame", Vector3.new(3.2, 7.2, 0.4), cf * CFrame.new(0, 4.3, 0.95), Config.COLORS.wood)
+		glass = place(model, "Glass", Vector3.new(2.7, 6.4, 0.15), cf * CFrame.new(0, 4.3, 0.68), Color3.fromRGB(200, 236, 255), Enum.Material.Glass, {
+			Transparency = 0.3,
+			Reflectance = 0.3,
+		})
+		place(model, "Crest", Vector3.new(3.5, 0.5, 0.7), cf * CFrame.new(0, 8.1, 0.95), Config.COLORS.gold)
+		Procedural.ball(model, "Jewel", 0.9, cf * CFrame.new(0, 8.7, 0.95), GOLD, Enum.Material.Neon)
+	end
+	glass.Transparency = glass.Name == "Glass" and glass.Transparency or 1
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.CanCollide = part.Name == "Base"

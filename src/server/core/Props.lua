@@ -12,8 +12,53 @@ local builders = {
 	fountain = Procedural.fountain,
 }
 
-function Props.make(kind)
-	local real = Assets.get("prop_" .. kind)
+local VARIANTS = {
+	tree = { "tree", "tree", "tree3", "tree", "tree2", "tree", "tree3", "tree", "tree", "tree3" },
+}
+
+local counters = {}
+
+local function spray(anchor)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "Spray"
+	emitter.Rate = 70
+	emitter.Lifetime = NumberRange.new(1.3, 1.9)
+	emitter.Speed = NumberRange.new(13, 17)
+	emitter.SpreadAngle = Vector2.new(16, 16)
+	emitter.Acceleration = Vector3.new(0, -30, 0)
+	emitter.Size = NumberSequence.new(0.8)
+	emitter.Color = ColorSequence.new(Color3.fromRGB(190, 235, 255))
+	emitter.LightEmission = 0.6
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	emitter.Parent = anchor
+end
+
+local function finish(kind, model)
+	if kind == "fountain" then
+		local anchor = model:FindFirstChild("SprayAnchor", true)
+		if anchor and not anchor:FindFirstChild("Spray") then
+			spray(anchor)
+		end
+	end
+end
+
+local function pick(kind)
+	local list = VARIANTS[kind]
+	if not list then
+		return kind
+	end
+	local index = (counters[kind] or 0) % #list + 1
+	counters[kind] = index
+	return list[index]
+end
+
+function Props.make(kind, variant)
+	local name = variant or pick(kind)
+	local real = Assets.get("prop_" .. name)
 	if real then
 		local model = real
 		if not real:IsA("Model") then
@@ -23,6 +68,7 @@ function Props.make(kind)
 		end
 		Assets.setPassive(model)
 		Assets.groundPivot(model)
+		finish(kind, model)
 		return model
 	end
 	local builder = builders[kind]
@@ -38,8 +84,8 @@ function Props.make(kind)
 	return model
 end
 
-function Props.place(parent, kind, cframe)
-	local model = Props.make(kind)
+function Props.place(parent, kind, cframe, variant)
+	local model = Props.make(kind, variant)
 	if not model then
 		return nil
 	end
@@ -48,13 +94,17 @@ function Props.place(parent, kind, cframe)
 	return model
 end
 
-function Props.hasRealFence()
-	local fence = Assets.get("prop_fence")
-	if fence then
-		fence:Destroy()
+function Props.has(kind)
+	local real = Assets.get("prop_" .. kind)
+	if real then
+		real:Destroy()
 		return true
 	end
 	return false
+end
+
+Props.hasRealFence = function()
+	return Props.has("fence")
 end
 
 return Props
