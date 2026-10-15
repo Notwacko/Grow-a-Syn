@@ -148,7 +148,7 @@ function InventoryUI.new(ctx)
 			end
 		end
 		if entry.slot then
-			C.text(dialog.Body, { text = "In " .. entry.slot:gsub("^Slot_", ""), size = "S", sizeU = UDim2.new(1, 0, 0, Space.L), position = UDim2.fromOffset(0, 138) })
+			C.text(dialog.Body, { text = "In " .. entry.slot:gsub("^Slot_", ""), size = "S", sizeU = UDim2.new(1, 0, 0, Space.L), position = UDim2.fromOffset(0, 140) })
 			C.button(dialog.Body, {
 				text = "Unequip",
 				color = Color.Orange,
@@ -162,7 +162,7 @@ function InventoryUI.new(ctx)
 		else
 			local list = C.scroll(dialog.Body, { horizontal = true, size = UDim2.new(1, 0, 0, Space.Tab), position = UDim2.fromOffset(0, 160) })
 			C.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, Space.S), SortOrder = Enum.SortOrder.LayoutOrder }, list)
-			C.text(dialog.Body, { text = "Place it in a slot:", size = "S", sizeU = UDim2.new(1, 0, 0, Space.L), position = UDim2.fromOffset(0, 138) })
+			C.text(dialog.Body, { text = "Place it in a slot:", size = "S", sizeU = UDim2.new(1, 0, 0, Space.L), position = UDim2.fromOffset(0, 140) })
 			for i, slot in slots do
 				local btn = C.button(list, {
 					text = tostring(i),
