@@ -7,4 +7,7 @@ The pre-commit hook does not allow role A to commit `src/client`, so the fixed c
 - `Tutorial.lua`: banner moved up for the compact layout.
 - `TierPopup.lua`: waits for `DataLoaded` so the saved tier no longer pops a "NEW TIER" window at join.
 - `patch_components.lua`: run once in Studio (Edit mode) to give `Components` an `image` option for buttons and pills and to replace the unreadable close glyph with an X. It is idempotent.
+- `ShopUI.lua`: the restocking shop. One icon tab per item category, a restock countdown, stock counts on every card, a sold out state and rarity colored cards with the real item model.
+- `patch_client.lua`: run once in Studio (Edit mode) after the files above are synced. Adds `Net.refreshCatalog` and `Net.ShopSeen`, makes `Components.modelView` accept `rarity` and `mutation` so previews show the rarity skin, and teaches `InventoryUI` to show mutations and growth. Idempotent.
+- `HUD.lua` also shows a dot on the Shop button after a restock and a timer pill while a Shabbat event runs.
 - Icons are rendered in Blender (`art/src/build_icons.py`) and uploaded; their asset ids are in `src/shared/Icons.lua`.

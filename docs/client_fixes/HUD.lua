@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
 local Theme = require(script.Parent.Theme)
 local C = require(script.Parent.Components)
@@ -78,6 +79,47 @@ function HUD.new(ctx, hooks)
 		hooks.openUpgrade()
 	end, false)
 	self.targets.Shop = shop
+
+	local shopDot = C.new("Frame", {
+		Name = "RestockDot",
+		BackgroundColor3 = Color.Red,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -2, 0, 2),
+		Size = UDim2.fromOffset(Space.L, Space.L),
+		ZIndex = 8,
+		Visible = false,
+	}, shop)
+	C.corner(shopDot, Space.S)
+	C.outline(shopDot, 2)
+	local function refreshDot()
+		local epoch = Workspace:GetAttribute("ShopEpoch") or 0
+		shopDot.Visible = Net.attr("PlotId", 0) > 0 and epoch ~= (Net.shopSeenEpoch or -1)
+	end
+	Workspace:GetAttributeChangedSignal("ShopEpoch"):Connect(refreshDot)
+	Net.onAttr("PlotId", refreshDot)
+	if Net.ShopSeen then
+		Net.ShopSeen:connect(refreshDot)
+	end
+	refreshDot()
+
+	local eventPill = C.pill(layer, { text = "", image = Icons.sun, color = Color.Orange, textSize = "S", name = "Event" })
+	eventPill.Root.AnchorPoint = Vector2.new(1, 0)
+	eventPill.Root.Position = UDim2.new(1, -MARGIN, 0, MARGIN)
+	eventPill.Root.Visible = false
+	task.spawn(function()
+		while layer.Parent do
+			local name = Workspace:GetAttribute("EventName") or ""
+			local remaining = (Workspace:GetAttribute("EventEndsAt") or 0) - Workspace:GetServerTimeNow()
+			if name ~= "" and remaining > 0 then
+				local seconds = math.floor(remaining)
+				eventPill:setText(string.format("%s  x%s  %d:%02d", name, tostring(Workspace:GetAttribute("EventMult") or 2), seconds // 60, seconds % 60))
+				eventPill.Root.Visible = true
+			else
+				eventPill.Root.Visible = false
+			end
+			task.wait(1)
+		end
+	end)
 	self.targets.Land = land
 	self.targets.Upgrade = upgrade
 

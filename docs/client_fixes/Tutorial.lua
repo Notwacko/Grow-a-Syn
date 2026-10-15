@@ -17,7 +17,7 @@ local Tutorial = {}
 local TEXT = {
 	[Step.ClaimPlot] = "Walk to the glowing pad to claim your plot!",
 	[Step.Greet] = "Go to your synagogue door and welcome your first visitors!",
-	[Step.Buy] = "Open the Shop and buy your first item!",
+	[Step.Buy] = "Open the Shop and buy a Simple Siddur!",
 	[Step.Minyan] = "Your congregation is growing. Ten people make a minyan!",
 	[Step.Denomination] = "You have a minyan! Choose your denomination.",
 }
