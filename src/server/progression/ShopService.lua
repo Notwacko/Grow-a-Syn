@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Balance = require(script.Parent.Balance)
 local Catalog = require(script.Parent.Catalog)
 local DenominationService = require(script.Parent.DenominationService)
 local Guard = require(script.Parent.Guard)
@@ -86,7 +87,8 @@ local function grantRobuxOffer(player, offer)
 			return false
 		end
 		local grant = Link.get(ServerStorage, "Bridge", "GrantMoney", "BindableEvent")
-		grant:Fire(player, offer.amount, offer.id)
+		local data = InventoryService.get(player)
+		grant:Fire(player, Balance.moneyPackAmount(offer.scale, data.Tier), offer.id)
 		return true
 	elseif offer.kind == "boost" then
 		local data = InventoryService.get(player)
