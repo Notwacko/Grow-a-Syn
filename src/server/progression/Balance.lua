@@ -49,10 +49,26 @@ Balance.CategoryWelcome = {
 	holiday_decor = 0.04,
 }
 
-Balance.ItemPrice = {
-	siddur = { common = 50, uncommon = 400, rare = 3000 },
-	ark = { common = 300, uncommon = 2500, rare = 20000 },
-	torah = { common = 500, uncommon = 4000, rare = 30000 },
+Balance.CategoryOrder = { "siddur", "ornament", "holiday_decor", "kiddush_cup", "ark", "menorah", "torah", "chandelier" }
+
+Balance.CategoryBasePrice = {
+	siddur = 50,
+	ornament = 120,
+	holiday_decor = 150,
+	kiddush_cup = 200,
+	ark = 300,
+	menorah = 400,
+	torah = 500,
+	chandelier = 600,
+}
+
+Balance.RarityPriceMult = {
+	common = 1,
+	uncommon = 8,
+	rare = 60,
+	epic = 400,
+	legendary = 2500,
+	mythical = 15000,
 }
 
 Balance.RarityMinTier = {
@@ -64,18 +80,25 @@ Balance.RarityMinTier = {
 	mythical = 6,
 }
 
-Balance.RobuxPrice = {
-	torah_epic = 99,
-	money_pack_small = 49,
-	boost_x2_15m = 49,
+Balance.RobuxItemRarities = { "epic", "legendary", "mythical" }
+
+Balance.RobuxItemPrice = {
+	epic = 79,
+	legendary = 199,
+	mythical = 499,
 }
 
-Balance.MoneyPackAmount = {
-	money_pack_small = 5000,
+Balance.MoneyPacks = {
+	{ id = "money_pack_small", name = "Small Money Pack", priceRobux = 49, scale = 1 },
+	{ id = "money_pack_medium", name = "Medium Money Pack", priceRobux = 149, scale = 4 },
+	{ id = "money_pack_large", name = "Large Money Pack", priceRobux = 399, scale = 12 },
 }
 
-Balance.Boost = {
-	boost_x2_15m = { multiplier = 2, durationSeconds = 900 },
+Balance.MoneyPackBase = { 2000, 5000, 20000, 60000, 200000, 600000, 2000000 }
+
+Balance.Boosts = {
+	{ id = "boost_x2_15m", name = "x2 Money 15 min", priceRobux = 49, multiplier = 2, durationSeconds = 900 },
+	{ id = "boost_x2_60m", name = "x2 Money 1 hour", priceRobux = 149, multiplier = 2, durationSeconds = 3600 },
 }
 
 Balance.TorahMilestones = {
@@ -120,6 +143,14 @@ function Balance.welcomeBonus(tier, equippedItems)
 		bonus += (Balance.CategoryWelcome[item.category] or 0) * (Balance.RarityWeight[item.rarity] or 1)
 	end
 	return round2(bonus)
+end
+
+function Balance.itemPrice(category, rarity)
+	return Balance.CategoryBasePrice[category] * Balance.RarityPriceMult[rarity]
+end
+
+function Balance.moneyPackAmount(scale, tier)
+	return (Balance.MoneyPackBase[tier] or Balance.MoneyPackBase[1]) * scale
 end
 
 function Balance.nextRarity(rarity)

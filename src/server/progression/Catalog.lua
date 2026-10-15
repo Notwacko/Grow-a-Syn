@@ -73,23 +73,19 @@ local function itemName(category, rarity)
 	return rarityById[rarity].name .. " " .. categoryById[category].name
 end
 
-local function itemOffer(category, rarity)
-	return {
-		id = category .. "_" .. rarity,
-		kind = "item",
-		category = category,
-		rarity = rarity,
-		name = itemName(category, rarity),
-		priceMoney = Balance.ItemPrice[category][rarity],
-		minTier = Balance.RarityMinTier[rarity],
-	}
-end
-
 local offers = {}
 
-for _, category in ipairs({ "siddur", "ark", "torah" }) do
-	for _, rarity in ipairs({ "common", "uncommon", "rare" }) do
-		table.insert(offers, itemOffer(category, rarity))
+for _, category in ipairs(Balance.CategoryOrder) do
+	for _, rarity in ipairs(Balance.RarityOrder) do
+		table.insert(offers, {
+			id = category .. "_" .. rarity,
+			kind = "item",
+			category = category,
+			rarity = rarity,
+			name = itemName(category, rarity),
+			priceMoney = Balance.itemPrice(category, rarity),
+			minTier = Balance.RarityMinTier[rarity],
+		})
 	end
 end
 
@@ -103,31 +99,44 @@ for tier = 3, Balance.MaxTier do
 	})
 end
 
-table.insert(offers, {
-	id = "torah_epic_robux",
-	kind = "item",
-	category = "torah",
-	rarity = "epic",
-	name = itemName("torah", "epic"),
-	priceRobux = Balance.RobuxPrice.torah_epic,
-})
+for _, category in ipairs(Balance.CategoryOrder) do
+	for _, rarity in ipairs(Balance.RobuxItemRarities) do
+		table.insert(offers, {
+			id = category .. "_" .. rarity .. "_robux",
+			kind = "item",
+			category = category,
+			rarity = rarity,
+			name = itemName(category, rarity),
+			priceRobux = Balance.RobuxItemPrice[rarity],
+		})
+	end
+end
 
-table.insert(offers, {
-	id = "money_pack_small",
-	kind = "money_pack",
-	name = "Money Pack",
-	priceRobux = Balance.RobuxPrice.money_pack_small,
-	amount = Balance.MoneyPackAmount.money_pack_small,
-})
+for _, pack in ipairs(Balance.MoneyPacks) do
+	local amountByTier = {}
+	for tier = 1, Balance.MaxTier do
+		amountByTier[tier] = Balance.moneyPackAmount(pack.scale, tier)
+	end
+	table.insert(offers, {
+		id = pack.id,
+		kind = "money_pack",
+		name = pack.name,
+		priceRobux = pack.priceRobux,
+		scale = pack.scale,
+		amountByTier = amountByTier,
+	})
+end
 
-table.insert(offers, {
-	id = "boost_x2_15m",
-	kind = "boost",
-	name = "x2 Money",
-	priceRobux = Balance.RobuxPrice.boost_x2_15m,
-	multiplier = Balance.Boost.boost_x2_15m.multiplier,
-	durationSeconds = Balance.Boost.boost_x2_15m.durationSeconds,
-})
+for _, boost in ipairs(Balance.Boosts) do
+	table.insert(offers, {
+		id = boost.id,
+		kind = "boost",
+		name = boost.name,
+		priceRobux = boost.priceRobux,
+		multiplier = boost.multiplier,
+		durationSeconds = boost.durationSeconds,
+	})
+end
 
 Catalog.offers = offers
 
