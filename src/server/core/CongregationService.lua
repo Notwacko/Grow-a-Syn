@@ -12,6 +12,7 @@ local Economy = require(script.Parent.Economy)
 local Fx = require(script.Parent.Fx)
 local Income = require(script.Parent.Income)
 local Procedural = require(script.Parent.Procedural)
+local NpcAvatar = require(script.Parent.NpcAvatar)
 local BuildingService = require(script.Parent.BuildingService)
 local Signal = require(script.Parent.Signal)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
@@ -19,6 +20,7 @@ local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild(
 local CongregationService = {}
 
 CongregationService.Greeted = Signal.new()
+CongregationService.Arrived = Signal.new()
 
 local states = {}
 local walkers = {}
@@ -118,7 +120,15 @@ local function shadeParts(model)
 	end
 end
 
-local function createModel(variant)
+local function createModel(variant, seed, tier)
+	if NpcAvatar.available then
+		local avatar, avatarHip, avatarYaw, avatarTop = NpcAvatar.create(tier, seed)
+		if avatar then
+			avatar:SetAttribute("Congregant", true)
+			avatar:SetAttribute("Avatar", true)
+			return avatar, avatarHip, avatarYaw, avatarTop
+		end
+	end
 	local source = Assets.get("congregant_" .. variant)
 	local model
 	if source then
@@ -140,7 +150,7 @@ local function createModel(variant)
 	local scale = (model:GetAttribute("BaseScale") or 1) * rng:NextNumber(0.92, 1.08)
 	model:ScaleTo(model:GetScale() * scale)
 	local yaw = math.rad(model:GetAttribute("FaceYaw") or 0)
-	return model, Config.CONGREGANT_HIP * scale, yaw
+	return model, Config.CONGREGANT_HIP * scale, yaw, Config.CONGREGANT_HEIGHT * scale
 end
 
 local function newEntry(state)
@@ -148,6 +158,7 @@ local function newEntry(state)
 	local entry = {
 		id = state.nextId,
 		variant = pickVariant(),
+		seed = rng:NextInteger(1, 2147483000),
 		status = "new",
 		hip = Config.CONGREGANT_HIP,
 		yaw = 0,
@@ -159,7 +170,7 @@ local function newEntry(state)
 end
 
 local function attachModel(state, entry, variant)
-	local model, hip, yaw = createModel(variant or entry.variant)
+	local model, hip, yaw = createModel(variant or entry.variant, entry.seed, state.player:GetAttribute("Tier"))
 	entry.model = model
 	entry.hip = hip
 	entry.yaw = yaw
@@ -235,6 +246,9 @@ end
 local function seatInstant(state, entry)
 	local info = state.info
 	if entry.model and entry.seatIndex and info.seats[entry.seatIndex] then
+		if entry.model:GetAttribute("Avatar") then
+			NpcAvatar.sit(entry.model)
+		end
 		entry.model:PivotTo(faceCFrame(seatPosition(info, entry.seatIndex, entry.hip), info.forward, entry.yaw) * CFrame.Angles(0, entry.seatYaw, 0))
 	end
 end
@@ -270,6 +284,7 @@ local function startWalk(state, entry)
 		position = from,
 		speed = entry.speed,
 		direction = Vector3.new(0, 0, -1),
+		animated = entry.model:GetAttribute("Avatar") == true and NpcAvatar.walk(entry.model, entry.speed),
 	}
 end
 
@@ -286,6 +301,7 @@ local function providerValue(name, player)
 end
 
 local function giveTip(state, position)
+	CongregationService.Arrived:Fire(state.player)
 	local tip = providerValue("tip", state.player)
 	if tip > 0 then
 		Economy.grant(state.player, tip, "tip")
@@ -346,7 +362,7 @@ local function stepWalkers(dt)
 			if walk.index > #walk.points then
 				arrive(walk.state, entry)
 			else
-				local bob = math.abs(math.sin(now * 11 + entry.id)) * 0.35
+				local bob = walk.animated and 0 or math.abs(math.sin(now * 11 + entry.id)) * 0.35
 				model:PivotTo(faceCFrame(walk.position + Vector3.new(0, bob, 0), walk.direction, entry.yaw))
 			end
 		end
@@ -356,7 +372,7 @@ local function stepWalkers(dt)
 		if not model or not model.Parent then
 			idlers[entry] = nil
 		else
-			local hop = math.max(0, math.sin(now * 3 + entry.id * 1.7)) * 0.5
+			local hop = idle.animated and 0 or math.max(0, math.sin(now * 3 + entry.id * 1.7)) * 0.5
 			model:PivotTo(idle.base * CFrame.new(0, hop, 0))
 		end
 	end
@@ -562,7 +578,7 @@ function CongregationService.spawnGuests(player)
 	for index = 1, Constants.TUTORIAL_GREETERS do
 		local entry = newEntry(state)
 		entry.variant = ((startVariant + index * 2) % Config.CONGREGANT_VARIANTS) + 1
-		local model, hip, yaw = createModel(entry.variant)
+		local model, hip, yaw, top = createModel(entry.variant, entry.seed, player:GetAttribute("Tier"))
 		entry.model = model
 		entry.hip = hip
 		entry.yaw = yaw
@@ -574,11 +590,12 @@ function CongregationService.spawnGuests(player)
 		local position = feet + lateral * ((index - 2) * 4.4)
 		local base = faceCFrame(position, facing, yaw)
 		model:PivotTo(base)
-		idlers[entry] = { base = base }
+		local animated = model:GetAttribute("Avatar") == true and NpcAvatar.wave(model)
+		idlers[entry] = { base = base, animated = animated }
 		local attachment = Instance.new("Attachment")
 		attachment.Name = "GreetPoint"
-		attachment.Position = Vector3.new(0, 3.5 * (hip / Config.CONGREGANT_HIP), 0)
 		attachment.Parent = model.PrimaryPart
+		attachment.WorldPosition = base.Position + Vector3.new(0, top * 0.62, 0)
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "GreetPrompt"
 		prompt.ActionText = "Greet"
@@ -590,7 +607,7 @@ function CongregationService.spawnGuests(player)
 		local marker = Instance.new("BillboardGui")
 		marker.Name = "GreetMarker"
 		marker.Size = UDim2.fromOffset(54, 54)
-		marker.StudsOffsetWorldSpace = Vector3.new(0, 3.4, 0)
+		marker.StudsOffsetWorldSpace = Vector3.new(0, top * 0.38 + 1.3, 0)
 		marker.AlwaysOnTop = true
 		marker.LightInfluence = 0
 		marker.MaxDistance = 260
@@ -721,6 +738,23 @@ function CongregationService.clear(player)
 	state.nextArrival = math.huge
 end
 
+function CongregationService.reset(player)
+	local state = states[player]
+	if not state then
+		return
+	end
+	for _, entry in state.entries do
+		removeEntry(state, entry)
+	end
+	state.count = 0
+	state.walking = 0
+	state.restoreTarget = nil
+	state.nextArrival = os.clock() + 4
+	if player.Parent == Players then
+		player:SetAttribute("Congregation", 0)
+	end
+end
+
 function CongregationService.forget(player)
 	CongregationService.clear(player)
 	states[player] = nil
@@ -760,6 +794,14 @@ local function publishStats()
 end
 
 function CongregationService.start()
+	task.spawn(function()
+		for _ = 1, 10 do
+			if NpcAvatar.prepare() then
+				return
+			end
+			task.wait(2)
+		end
+	end)
 	RunService.Heartbeat:Connect(function(dt)
 		local ok, err = pcall(stepWalkers, dt)
 		if not ok then

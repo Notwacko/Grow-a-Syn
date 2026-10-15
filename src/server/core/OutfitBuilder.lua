@@ -139,7 +139,47 @@ local function headScarf(color, accent)
 	}
 end
 
+local function hairShort(color)
+	return {
+		block("Head", 1.32, 0.44, 1.32, 0, 0.5, 0.06, color, SMOOTH),
+		block("Head", 1.32, 0.2, 0.2, 0, 0.36, -0.62, color, SMOOTH),
+		block("Head", 1.32, 0.86, 0.24, 0, 0.1, 0.64, color, SMOOTH),
+		block("Head", 0.2, 0.62, 1.0, -0.62, 0.2, 0.1, color, SMOOTH),
+		block("Head", 0.2, 0.62, 1.0, 0.62, 0.2, 0.1, color, SMOOTH),
+	}
+end
+
+local function hairLong(color)
+	return merge(hairShort(color), {
+		block("Head", 1.44, 1.9, 0.34, 0, -0.45, 0.72, color, SMOOTH),
+		block("Head", 0.26, 1.2, 0.9, -0.66, -0.2, 0.2, color, SMOOTH),
+		block("Head", 0.26, 1.2, 0.9, 0.66, -0.2, 0.2, color, SMOOTH),
+	})
+end
+
+local function hairBun(color)
+	return merge(hairShort(color), {
+		ball("Head", 0.62, 0, 0.88, 0.42, color, SMOOTH),
+	})
+end
+
+local function hairCurly(color)
+	return {
+		ball("Head", 0.78, -0.42, 0.52, 0, color, SMOOTH),
+		ball("Head", 0.78, 0.42, 0.52, 0, color, SMOOTH),
+		ball("Head", 0.86, 0, 0.66, 0.1, color, SMOOTH),
+		ball("Head", 0.7, -0.52, 0.2, 0.42, color, SMOOTH),
+		ball("Head", 0.7, 0.52, 0.2, 0.42, color, SMOOTH),
+		ball("Head", 0.82, 0, 0.1, 0.6, color, SMOOTH),
+		ball("Head", 0.7, 0, 0.55, -0.4, color, SMOOTH),
+	}
+end
+
 local library = {
+	hair_short = hairShort(C.hair),
+	hair_long = hairLong(C.hair),
+	hair_bun = hairBun(C.hair),
+	hair_curly = hairCurly(C.hair),
 	kippah_rainbow = kippah(C.red, C.yellow, C.blue),
 	kippah_navy = kippah(C.navy, C.navy, rgb(60, 82, 150)),
 	kippah_knit = kippah(rgb(238, 232, 214), rgb(70, 120, 220), rgb(236, 84, 84)),
@@ -232,6 +272,11 @@ local MODEL_PIECES = {
 	tichel_blue = { model = "ofit_tichel", colors = {} },
 	tichel_black = { model = "ofit_tichel", colors = { Cloth = C.charcoal, Accent = C.black } },
 	tichel_silk = { model = "ofit_tichel", colors = { Cloth = C.cream, Accent = C.gold } },
+	hair_short = { model = "ofit_hair_short", colors = { Hair = C.hair } },
+	hair_long = { model = "ofit_hair_long", colors = { Hair = C.hair } },
+	hair_bun = { model = "ofit_hair_bun", colors = { Hair = C.hair } },
+	hair_curly = { model = "ofit_hair_curly", colors = { Hair = C.hair } },
+	hair_pony = { model = "ofit_hair_pony", colors = { Hair = C.hair } },
 	beard = { model = "ofit_beard", colors = { Hair = C.hair } },
 	peyot = { model = "ofit_peyot", colors = { Hair = C.hair } },
 	blazer_gray = { model = "ofit_jacket_open", colors = { Cloth = C.gray, ClothDark = rgb(88, 92, 106) } },
@@ -274,6 +319,10 @@ local function usesModel(pieceId)
 	return spec ~= nil and modelAvailable(spec.model)
 end
 
+function OutfitBuilder.modelExists(name)
+	return modelAvailable(name)
+end
+
 function OutfitBuilder.gearFor(pieceId)
 	if usesModel(pieceId) then
 		return nil
@@ -285,7 +334,7 @@ function OutfitBuilder.has(pieceId)
 	return library[pieceId] ~= nil or GEAR[pieceId] ~= nil or usesModel(pieceId)
 end
 
-local function attachModel(character, folder, pieceId, spec)
+local function attachModel(character, folder, pieceId, spec, overrides)
 	local source = Assets.get(spec.model)
 	if not source then
 		return false
@@ -308,7 +357,7 @@ local function attachModel(character, folder, pieceId, spec)
 				copy.CanQuery = false
 				copy.CanTouch = false
 				copy.CastShadow = false
-				local color = spec.colors[key]
+				local color = (overrides and overrides[key]) or spec.colors[key]
 				if color then
 					copy.Color = color
 				end
@@ -335,11 +384,15 @@ function OutfitBuilder.apply(character, pieceIds)
 	folder.Name = "CoreOutfit"
 	local torso = character:FindFirstChild("UpperTorso")
 	local scale = torso and math.clamp(torso.Size.Y / 1.698, 0.5, 2) or 1
-	for _, id in pieceIds do
-		local modelSpec = MODEL_PIECES[id]
+	for _, entry in pieceIds do
+		local id, overrides, tint, direct = entry, nil, nil, nil
+		if type(entry) == "table" then
+			id, overrides, tint, direct = entry.id, entry.colors, entry.color, entry.spec
+		end
+		local modelSpec = direct or MODEL_PIECES[id]
 		local done = false
 		if modelSpec and modelAvailable(modelSpec.model) then
-			done = attachModel(character, folder, id, modelSpec)
+			done = attachModel(character, folder, id, modelSpec, overrides)
 		end
 		local specs = library[id]
 		if specs and not done then
@@ -350,7 +403,7 @@ function OutfitBuilder.apply(character, pieceIds)
 					part.Name = id
 					part.Shape = spec.shape
 					part.Size = spec.size * scale
-					part.Color = spec.color
+					part.Color = tint or spec.color
 					part.Material = spec.material
 					part.Massless = true
 					part.CanCollide = false
