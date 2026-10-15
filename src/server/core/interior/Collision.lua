@@ -1,3 +1,4 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
@@ -11,6 +12,7 @@ local HEIGHT = 16
 local DOOR_GAP = 3.8
 local SIDE_MARGIN = 1.6
 local BACK_MARGIN = 2.4
+local CAMERA_HEIGHT = 14
 
 local function wall(folder, frame, name, center, size)
 	local part = Instance.new("Part")
@@ -105,6 +107,18 @@ function Collision.build(context)
 	if deck > 0.2 then
 		wall(folder, frame, "Deck", Vector3.new((minX + maxX) / 2, floorTopLocal + deck / 2, (zFront + zBack) / 2), Vector3.new(maxX - minX, deck, depth))
 	end
+	local box = Instance.new("Part")
+	box.Name = "CameraBox"
+	box.Size = Vector3.new(maxX - minX, CAMERA_HEIGHT, depth)
+	box.CFrame = frame * CFrame.new((minX + maxX) / 2, walkLocal + CAMERA_HEIGHT / 2, (zFront + zBack) / 2)
+	box.Anchored = true
+	box.Transparency = 1
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.CastShadow = false
+	box.Parent = folder
+	CollectionService:AddTag(box, "InteriorCameraBox")
 	context.interiorBounds = { minX = minX, maxX = maxX, zFront = zFront, zBack = zBack }
 	evict(context, walls)
 end

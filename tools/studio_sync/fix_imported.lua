@@ -18,7 +18,7 @@ local function note(name, text)
 end
 
 local function parseName(name)
-	local label, hex = string.match(name, "^(.-)__(%x%x%x%x%x%x)$")
+	local label, hex = string.match(name, "^(.-)__(%x%x%x%x%x%x)%.?%d*$")
 	if label then
 		return label, hex
 	end

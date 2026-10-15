@@ -55,7 +55,7 @@ local function prepareReal(model)
 	root.Anchored = true
 	model.PrimaryPart = root
 	local head = model:FindFirstChild("Head", true)
-	if head and head:IsA("BasePart") and not head:FindFirstChildOfClass("Decal") then
+	if head and head:IsA("BasePart") and not head:FindFirstChildOfClass("Decal") and not model:FindFirstChild("Eye", true) then
 		local face = Instance.new("Decal")
 		face.Name = "face"
 		face.Texture = "rbxasset://textures/face.png"
