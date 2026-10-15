@@ -1,6 +1,6 @@
 local Format = {}
 
-local SUFFIXES = { "", "K", "M", "B", "T", "Qa" }
+local SUFFIXES = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc" }
 
 function Format.short(value)
 	if type(value) ~= "number" or value ~= value then
@@ -9,7 +9,7 @@ function Format.short(value)
 	if value < 1000 then
 		return tostring(math.floor(value))
 	end
-	local index = math.min(math.floor(math.log10(value) / 3), #SUFFIXES - 1)
+	local index = math.min(math.floor(math.log10(value) / 3 + 1e-9), #SUFFIXES - 1)
 	local scaled = value / (10 ^ (index * 3))
 	local pattern = "%.2f"
 	if scaled >= 100 then

@@ -1,21 +1,25 @@
-local ItemCatalog = {}
-
 local fromRGB = Color3 and Color3.fromRGB or function(r, g, b)
 	return { r, g, b }
 end
 local newRandom = Random and Random.new
 
+local ItemCatalog = {}
+
 ItemCatalog.RESTOCK_SECONDS = 300
-ItemCatalog.MAX_ITEMS = 300
+ItemCatalog.PATRON_RESTOCK_SECONDS = 240
+ItemCatalog.MAX_ITEMS = 400
 ItemCatalog.MERGE_COUNT = 3
+ItemCatalog.SHOP_SLOTS = 8
+ItemCatalog.STARTER_SHELF = { id = "siddur_common", quantity = 6 }
+ItemCatalog.PITY = { rare = 6, epic = 18, legendary = 60 }
 
 ItemCatalog.RARITIES = {
-	{ id = "common", name = "Common", color = fromRGB(170, 180, 200), price = 1, bonus = 1, grow = 45, chance = 1, stockMin = 3, stockMax = 6 },
-	{ id = "uncommon", name = "Uncommon", color = fromRGB(80, 215, 110), price = 5, bonus = 1.8, grow = 90, chance = 0.75, stockMin = 2, stockMax = 4 },
-	{ id = "rare", name = "Rare", color = fromRGB(70, 160, 255), price = 25, bonus = 3.2, grow = 180, chance = 0.45, stockMin = 1, stockMax = 3 },
-	{ id = "epic", name = "Epic", color = fromRGB(176, 100, 255), price = 120, bonus = 5.6, grow = 360, chance = 0.22, stockMin = 1, stockMax = 2 },
-	{ id = "legendary", name = "Legendary", color = fromRGB(255, 190, 50), price = 600, bonus = 10, grow = 720, chance = 0.08, stockMin = 1, stockMax = 1 },
-	{ id = "mythical", name = "Mythical", color = fromRGB(255, 80, 140), price = 3000, bonus = 18, grow = 1200, chance = 0.025, stockMin = 1, stockMax = 1 },
+	{ id = "common", name = "Common", color = fromRGB(154, 165, 177), price = 1, bonus = 1, grow = 60, weight = 62, stockMin = 3, stockMax = 6 },
+	{ id = "uncommon", name = "Uncommon", color = fromRGB(43, 182, 115), price = 5, bonus = 1.8, grow = 180, weight = 24, stockMin = 2, stockMax = 4 },
+	{ id = "rare", name = "Rare", color = fromRGB(47, 128, 237), price = 25, bonus = 3.2, grow = 600, weight = 9, stockMin = 1, stockMax = 3 },
+	{ id = "epic", name = "Epic", color = fromRGB(155, 81, 224), price = 120, bonus = 5.6, grow = 2400, weight = 4, stockMin = 1, stockMax = 2 },
+	{ id = "legendary", name = "Legendary", color = fromRGB(242, 169, 0), price = 600, bonus = 10, grow = 10800, weight = 1, stockMin = 1, stockMax = 1 },
+	{ id = "mythical", name = "Mythical", color = fromRGB(255, 61, 154), price = 3000, bonus = 18, grow = 43200, weight = 0.2, stockMin = 1, stockMax = 1 },
 }
 
 ItemCatalog.PREFIX = {
@@ -28,23 +32,26 @@ ItemCatalog.PREFIX = {
 }
 
 ItemCatalog.CATEGORIES = {
-	{ id = "siddur", name = "Siddur", price = 50, bonus = 0.03, fit = 1.5 },
-	{ id = "ornament", name = "Wall Ornament", price = 60, bonus = 0.03, fit = 2.1 },
-	{ id = "kiddush_cup", name = "Kiddush Cup", price = 90, bonus = 0.04, fit = 1.2 },
-	{ id = "holiday_decor", name = "Holiday Banner", price = 150, bonus = 0.05, fit = 4.6 },
-	{ id = "menorah", name = "Menorah", price = 250, bonus = 0.08, fit = 3.2 },
-	{ id = "torah", name = "Sefer Torah", price = 400, bonus = 0.1, fit = 2.1, noMerge = true },
-	{ id = "chandelier", name = "Chandelier", price = 500, bonus = 0.1, fit = 4.2 },
-	{ id = "ark", name = "Aron Kodesh", price = 700, bonus = 0.12, fit = 6.2 },
+	{ id = "siddur", name = "Siddur", price = 50, bonus = 0.03, fit = 1.5, weight = 16 },
+	{ id = "ornament", name = "Wall Ornament", price = 60, bonus = 0.03, fit = 2.1, weight = 15 },
+	{ id = "kiddush_cup", name = "Kiddush Cup", price = 90, bonus = 0.04, fit = 1.2, weight = 14 },
+	{ id = "holiday_decor", name = "Holiday Banner", price = 150, bonus = 0.05, fit = 4.6, weight = 12 },
+	{ id = "menorah", name = "Menorah", price = 250, bonus = 0.08, fit = 3.2, weight = 10 },
+	{ id = "torah", name = "Sefer Torah", price = 400, bonus = 0.1, fit = 2.1, weight = 6, noMerge = true },
+	{ id = "chandelier", name = "Chandelier", price = 500, bonus = 0.1, fit = 4.2, weight = 8 },
+	{ id = "ark", name = "Aron Kodesh", price = 700, bonus = 0.12, fit = 6.2, weight = 4 },
 }
 
 ItemCatalog.MUTATIONS = {
-	{ id = "gilded", name = "Gilded", chance = 0.12, mult = 1.5, color = fromRGB(255, 214, 80) },
-	{ id = "radiant", name = "Radiant", chance = 0.04, mult = 2.2, color = fromRGB(255, 255, 255) },
-	{ id = "ancient", name = "Ancient", chance = 0.01, mult = 3.5, color = fromRGB(96, 214, 196) },
+	{ id = "polished", name = "Polished", chance = 0.06, mult = 1.5, color = fromRGB(214, 226, 255) },
+	{ id = "gilded", name = "Gilded", chance = 0.025, mult = 3, color = fromRGB(255, 214, 80) },
+	{ id = "radiant", name = "Radiant", chance = 0.01, mult = 6, color = fromRGB(255, 255, 255) },
+	{ id = "luminous", name = "Luminous", chance = 0.004, mult = 15, color = fromRGB(120, 255, 240) },
+	{ id = "ancient", name = "Ancient", chance = 0.001, mult = 50, color = fromRGB(96, 214, 196) },
 }
 
 ItemCatalog.MATURITY_FLOOR = 0.4
+ItemCatalog.MAX_STAR = 10
 
 local rarityIndex = {}
 for index, rarity in ItemCatalog.RARITIES do
@@ -77,6 +84,7 @@ for _, category in ItemCatalog.CATEGORIES do
 			bonus = category.bonus * rarity.bonus,
 			grow = rarity.grow,
 			mergesTo = (nextRarity and not category.noMerge) and (category.id .. "_" .. nextRarity.id) or nil,
+			starMerge = (not nextRarity and not category.noMerge) or nil,
 		}
 		table.insert(list, entry)
 		byId[entry.id] = entry
@@ -126,41 +134,129 @@ function ItemCatalog.maturityFactor(growth)
 	return ItemCatalog.MATURITY_FLOOR + (1 - ItemCatalog.MATURITY_FLOOR) * math.clamp(growth, 0, 1)
 end
 
-function ItemCatalog.bonusOf(entry, growth, mutationId)
+local STAR_STEPS = { 4, 4, 4, 4, 4, 3.5, 3.5, 3.5, 3.2, 3.2 }
+
+function ItemCatalog.starMult(star)
+	star = math.clamp(math.floor(tonumber(star) or 0), 0, ItemCatalog.MAX_STAR)
+	local value = 1
+	for step = 1, star do
+		value *= STAR_STEPS[step]
+	end
+	return value
+end
+
+function ItemCatalog.bonusOf(entry, growth, mutationId, star)
 	if not entry then
 		return 0
 	end
 	local mutation = mutationId and mutationById[mutationId]
-	return entry.bonus * ItemCatalog.maturityFactor(growth) * (mutation and mutation.mult or 1)
+	return entry.bonus * ItemCatalog.maturityFactor(growth) * (mutation and mutation.mult or 1) * ItemCatalog.starMult(star)
 end
 
-function ItemCatalog.displayName(entry, mutationId)
+function ItemCatalog.displayName(entry, mutationId, star)
+	local name = entry.name
 	local mutation = mutationId and mutationById[mutationId]
 	if mutation then
-		return mutation.name .. " " .. entry.name
+		name = mutation.name .. " " .. name
 	end
-	return entry.name
+	if star and star > 0 then
+		name = name .. " +" .. star
+	end
+	return name
+end
+
+function ItemCatalog.mergeResult(itemId, star)
+	local entry = byId[itemId]
+	star = star or 0
+	if not entry then
+		return nil
+	end
+	if entry.mergesTo then
+		return { id = entry.mergesTo, star = 0 }
+	end
+	if entry.starMerge and star < ItemCatalog.MAX_STAR then
+		return { id = itemId, star = star + 1 }
+	end
+	return nil
+end
+
+local function pickWeighted(random, entries, weightOf)
+	local total = 0
+	for _, entry in entries do
+		total += weightOf(entry)
+	end
+	local roll = random:NextNumber() * total
+	for _, entry in entries do
+		roll -= weightOf(entry)
+		if roll <= 0 then
+			return entry
+		end
+	end
+	return entries[#entries]
+end
+
+local function rarityPool(minimum)
+	local pool = {}
+	for index, rarity in ItemCatalog.RARITIES do
+		if index >= minimum then
+			table.insert(pool, rarity)
+		end
+	end
+	return pool
 end
 
 function ItemCatalog.stockFor(epoch, factory)
 	factory = factory or newRandom
 	local stock = {}
-	for index, entry in list do
-		local rarity = ItemCatalog.rarity(entry.rarity)
-		local random = factory(epoch * 7919 + index * 104729)
-		local count = 0
-		if entry.id == "siddur_common" then
-			count = random:NextInteger(4, 7)
-		elseif random:NextNumber() < rarity.chance then
-			count = random:NextInteger(rarity.stockMin, rarity.stockMax)
-		end
-		stock[entry.id] = count
+	local forced = {}
+	if epoch % ItemCatalog.PITY.legendary == 0 then
+		table.insert(forced, rarityIndex.legendary)
 	end
+	if epoch % ItemCatalog.PITY.epic == 0 then
+		table.insert(forced, rarityIndex.epic)
+	end
+	if epoch % ItemCatalog.PITY.rare == 0 then
+		table.insert(forced, rarityIndex.rare)
+	end
+	for slot = 1, ItemCatalog.SHOP_SLOTS do
+		local random = factory(epoch * 7919 + slot * 104729)
+		local category = pickWeighted(random, ItemCatalog.CATEGORIES, function(entry)
+			return entry.weight
+		end)
+		local minimum = forced[slot] or 1
+		local rarity = pickWeighted(random, rarityPool(minimum), function(entry)
+			return entry.weight
+		end)
+		local quantity = random:NextInteger(rarity.stockMin, rarity.stockMax)
+		local id = category.id .. "_" .. rarity.id
+		stock[id] = (stock[id] or 0) + quantity
+	end
+	local shelf = ItemCatalog.STARTER_SHELF
+	stock[shelf.id] = math.max(stock[shelf.id] or 0, shelf.quantity)
 	return stock
 end
 
-function ItemCatalog.epochOf(unixTime)
-	return math.floor(unixTime / ItemCatalog.RESTOCK_SECONDS)
+function ItemCatalog.epochOf(unixTime, restockSeconds)
+	return math.floor(unixTime / (restockSeconds or ItemCatalog.RESTOCK_SECONDS))
+end
+
+function ItemCatalog.oddsTable()
+	local total = 0
+	for _, rarity in ItemCatalog.RARITIES do
+		total += rarity.weight
+	end
+	local rows = {}
+	for _, rarity in ItemCatalog.RARITIES do
+		table.insert(rows, { id = rarity.id, name = rarity.name, percent = rarity.weight / total * 100 })
+	end
+	local mutations = {}
+	local mutated = 0
+	for _, mutation in ItemCatalog.MUTATIONS do
+		mutated += mutation.chance
+		table.insert(mutations, { id = mutation.id, name = mutation.name, percent = mutation.chance * 100, mult = mutation.mult })
+	end
+	table.insert(mutations, 1, { id = "none", name = "No mutation", percent = (1 - mutated) * 100, mult = 1 })
+	return rows, mutations
 end
 
 function ItemCatalog.cleanSaved(raw)
@@ -179,6 +275,7 @@ function ItemCatalog.cleanSaved(raw)
 				uid = saved.uid,
 				id = saved.id,
 				grown = 0,
+				star = 0,
 			}
 			if type(saved.grown) == "number" and saved.grown == saved.grown and saved.grown >= 0 then
 				entry.grown = math.min(saved.grown, byId[saved.id].grow)
@@ -191,6 +288,9 @@ function ItemCatalog.cleanSaved(raw)
 			end
 			if type(saved.mut) == "string" and (mutationById[saved.mut] or saved.mut == "none") then
 				entry.mut = saved.mut
+			end
+			if type(saved.star) == "number" and saved.star == saved.star then
+				entry.star = math.clamp(math.floor(saved.star), 0, ItemCatalog.MAX_STAR)
 			end
 			table.insert(result, entry)
 		end

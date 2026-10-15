@@ -1,4 +1,5 @@
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -20,6 +21,8 @@ local upgradeProvider = nil
 local cosmeticsProvider = nil
 local progressProvider = nil
 local warnedOffline = false
+local sectionDefs = {}
+local sectionOrder = {}
 
 local function storeKey(player)
 	return "Player_" .. player.UserId
@@ -34,6 +37,7 @@ local function defaultData()
 		upgrades = {},
 		cosmetics = { outfit = OutfitCatalog.AUTO, style = "classic" },
 		progress = { denomination = "", tier = 1, items = {} },
+		sections = {},
 	}
 end
 
@@ -99,6 +103,9 @@ local function sanitize(raw)
 	data.upgrades = cleanUpgrades(raw.upgrades)
 	data.cosmetics = cleanCosmetics(raw.cosmetics)
 	data.progress = cleanProgress(raw.progress)
+	if type(raw.sections) == "table" then
+		data.sections = raw.sections
+	end
 	return data
 end
 
@@ -110,6 +117,14 @@ local function itemsSignature(items)
 	return table.concat(parts, ",")
 end
 
+local function sectionsSignature(sections)
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, sections or {})
+	if ok then
+		return encoded
+	end
+	return tostring(os.clock())
+end
+
 local function snapshotOf(data)
 	local levels = {}
 	for _, definition in UpgradeCatalog.list do
@@ -117,7 +132,7 @@ local function snapshotOf(data)
 	end
 	local cosmetics = data.cosmetics or {}
 	local progress = data.progress or {}
-	return string.format("%.2f|%d|%d|%d|%s|%s|%s|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style), tostring(progress.denomination), tostring(progress.tier), itemsSignature(progress.items))
+	return string.format("%.2f|%d|%d|%d|%s|%s|%s|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style), tostring(progress.denomination), tostring(progress.tier), itemsSignature(progress.items)) .. "|" .. sectionsSignature(data.sections)
 end
 
 function DataService.setCongregationProvider(provider)
@@ -136,6 +151,26 @@ function DataService.setProgressProvider(provider)
 	progressProvider = provider
 end
 
+function DataService.registerSection(name, definition)
+	if not sectionDefs[name] then
+		table.insert(sectionOrder, name)
+	end
+	sectionDefs[name] = definition
+end
+
+function DataService.applySections(player, data)
+	local saved = data and data.sections or {}
+	for _, name in sectionOrder do
+		local definition = sectionDefs[name]
+		if definition and definition.apply then
+			local ok, err = pcall(definition.apply, player, saved[name])
+			if not ok then
+				warn("[Data] section " .. name .. " apply failed: " .. tostring(err))
+			end
+		end
+	end
+end
+
 function DataService.collect(player)
 	local congregation = player:GetAttribute("Congregation")
 	if congregationProvider then
@@ -152,6 +187,21 @@ function DataService.collect(player)
 		upgrades = cleanUpgrades(upgradeProvider and upgradeProvider(player) or nil),
 		cosmetics = cleanCosmetics(cosmeticsProvider and cosmeticsProvider(player) or nil),
 		progress = cleanProgress(progressProvider and progressProvider(player) or nil),
+		sections = (function()
+			local sections = {}
+			for _, name in sectionOrder do
+				local definition = sectionDefs[name]
+				if definition and definition.serialize then
+					local ok, value = pcall(definition.serialize, player)
+					if ok then
+						sections[name] = value
+					else
+						warn("[Data] section " .. name .. " serialize failed: " .. tostring(value))
+					end
+				end
+			end
+			return sections
+		end)(),
 	}
 end
 
@@ -223,6 +273,7 @@ function DataService.save(player, force)
 				merged.upgrades = data.upgrades
 				merged.cosmetics = data.cosmetics
 				merged.progress = data.progress
+				merged.sections = data.sections
 				merged.savedAt = os.time()
 				return merged
 			end)

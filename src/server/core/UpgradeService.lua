@@ -90,6 +90,18 @@ function UpgradeService.purchase(player, id)
 	return true
 end
 
+function UpgradeService.reset(player)
+	local own = levels[player]
+	if not own then
+		return
+	end
+	for _, definition in Catalog.list do
+		own[definition.id] = 0
+		player:SetAttribute(attributeName(definition.id), 0)
+		UpgradeService.Changed:Fire(player, definition.id, 0)
+	end
+end
+
 function UpgradeService.forget(player)
 	levels[player] = nil
 end

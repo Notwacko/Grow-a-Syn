@@ -1,3 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Balance = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Balance"))
+
 local Config = {}
 
 Config.GROUND_Y = 0
@@ -26,7 +30,7 @@ Config.LAND_BOUNDS = {
 	[6] = { x1 = -80, x2 = 80, z1 = 0, z2 = 240 },
 }
 
-Config.LAND_COSTS = { 750, 4000, 20000, 100000, 500000 }
+Config.LAND_COSTS = Balance.LAND_COSTS
 
 Config.CLAIM_PAD_LOCAL = Vector3.new(0, 0, 9)
 Config.NPC_SPAWN_LOCAL = Vector3.new(-20, 0, 3)

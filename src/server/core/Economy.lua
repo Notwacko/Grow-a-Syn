@@ -7,9 +7,14 @@ local Link = require(script.Parent.Link)
 local Config = require(script.Parent.Config)
 local Guard = require(script.Parent.Guard)
 local Income = require(script.Parent.Income)
+local Signal = require(script.Parent.Signal)
+local IncomeService = require(script.Parent.IncomeService)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local Economy = {}
+
+Economy.Earned = Signal.new()
+Economy.Spent = Signal.new()
 
 local active = {}
 local pendingGrants = {}
@@ -67,6 +72,9 @@ function Economy.spend(player, amount, reason)
 		return false
 	end
 	player:SetAttribute("Money", clampMoney(money - amount))
+	if amount > 0 then
+		Economy.Spent:Fire(player, amount, reason)
+	end
 	return true
 end
 
@@ -83,6 +91,9 @@ function Economy.grant(player, amount, reason)
 		return true
 	end
 	player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + amount))
+	if amount > 0 then
+		Economy.Earned:Fire(player, amount, reason)
+	end
 	return true
 end
 
@@ -93,6 +104,7 @@ function Economy.setActive(player, value)
 		pendingGrants[player] = nil
 		if pending and pending > 0 then
 			player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + pending))
+			Economy.Earned:Fire(player, pending, "pending")
 		end
 	end
 end
@@ -100,6 +112,14 @@ end
 function Economy.release(player)
 	active[player] = nil
 	pendingGrants[player] = nil
+end
+
+function Economy.setMoney(player, amount)
+	if not Guard.isPlayer(player) or not Guard.isNumber(amount) then
+		return false
+	end
+	player:SetAttribute("Money", clampMoney(amount))
+	return true
 end
 
 function Economy.setEventMult(value)
@@ -144,11 +164,14 @@ function Economy.incomePerSecond(player)
 end
 
 local function tickPlayer(player, dt)
+	IncomeService.refresh(player)
 	local perSecond = Economy.incomePerSecond(player)
 	setAttribute(player, "MoneyPerSecond", round2(perSecond))
 	setAttribute(player, "BonusPerSecond", round2(Economy.bonusPerSecond(player)))
 	if perSecond > 0 then
-		player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + perSecond * dt))
+		local gained = perSecond * dt
+		player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + gained))
+		Economy.Earned:Fire(player, gained, "income")
 	end
 end
 

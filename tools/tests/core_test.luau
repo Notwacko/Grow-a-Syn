@@ -20,6 +20,9 @@ local function stubRandom(seed)
 	}
 end
 local Items = require("../../src/shared/ItemCatalog")
+local Balance = require("../../src/shared/Balance")
+local Quests = require("../../src/shared/QuestCatalog")
+local Pets = require("../../src/shared/PetCatalog")
 
 local failures = 0
 local function check(label, condition)
@@ -63,16 +66,62 @@ local desk = Upgrades.get("membership_desk")
 check("catalog has 3 upgrades", #Upgrades.list == 3 and welcome and kiddush and desk)
 check("unknown upgrade is nil", Upgrades.get("nope") == nil)
 check("cost level 0", Upgrades.cost(welcome, 0) == 400)
-check("cost grows 4x", Upgrades.cost(welcome, 1) == 1600 and Upgrades.cost(welcome, 2) == 6400)
-check("cost at max is nil", Upgrades.cost(welcome, 5) == nil)
+check("cost grows 15 percent a level", Upgrades.cost(welcome, 1) == 460 and Upgrades.cost(welcome, 2) == 529)
+check("upgrades have no maximum", welcome.maxLevel == math.huge and Upgrades.cost(welcome, 500) == nil or Upgrades.cost(welcome, 120) ~= nil)
+check("absurd levels cap out instead of overflowing", Upgrades.cost(welcome, 1000) == nil)
 local none = {}
-check("no upgrades no bonus", Upgrades.arrivalBonus(none) == 0 and Upgrades.tip(none, 3) == 0 and Upgrades.duesPerSecond(none, 50) == 0)
-local max = { welcome_table = 5, kiddush_table = 5, membership_desk = 5 }
-check("arrival bonus at max", near(Upgrades.arrivalBonus(max), 1.25))
-check("arrival interval with max welcome table", near(Income.arrivalInterval(Upgrades.arrivalBonus(max), true, 10, 1.5, 10, 3), 10 / 2.25))
-check("tip scales with tier", Upgrades.tip({ kiddush_table = 1 }, 1) == 5 and Upgrades.tip({ kiddush_table = 1 }, 7) == 14)
-check("dues scale with congregation", near(Upgrades.duesPerSecond({ membership_desk = 2 }, 40), 12))
-check("bad levels are safe", Upgrades.arrivalBonus({ welcome_table = "x" }) == 0)
+check("no upgrades no bonus", Upgrades.arrivalBonus(none) == 0 and Upgrades.tip(none, 3) == 0 and Upgrades.duesPerSecond(none, 50) == 0 and Upgrades.incomeMult(none) == 1)
+local sample = { welcome_table = 10, kiddush_table = 10, membership_desk = 10 }
+check("arrival bonus grows", near(Upgrades.arrivalBonus(sample), 0.5))
+check("desk raises income", near(Upgrades.incomeMult(sample), 1.4))
+check("soft cap slows late upgrades", near(Upgrades.incomeMult({ membership_desk = 25 }), 2) and near(Upgrades.incomeMult({ membership_desk = 125 }), 2 + 100 * 0.04 * 0.25))
+check("tip scales with tier", Upgrades.tip({ kiddush_table = 1 }, 1) == 10 and Upgrades.tip({ kiddush_table = 1 }, 7) == 7290)
+check("bad levels are safe", Upgrades.arrivalBonus({ welcome_table = "x" }) == 0 and Upgrades.arrivalBonus(nil) == 0)
+
+check("tier multipliers triple each stage", Balance.tierMult(1) == 1 and Balance.tierMult(2) == 3 and Balance.tierMult(7) == 729)
+check("tier costs grow 24x", Balance.tierCost(2) == 5000 and Balance.tierCost(3) == 120000 and Balance.tierCost(1) == nil and Balance.tierCost(8) == nil)
+check("land costs rise steeply", Balance.landCost(1) == 30000 and Balance.landCost(5) == 10000000000 and Balance.landCost(6) == nil)
+check("shop prices scale with the stage", Balance.priceScale(1) == 1 and Balance.priceScale(3) == 16)
+check("star multipliers stack", near(Balance.starMult(0), 1) and near(Balance.starMult(2), 16) and near(Balance.starMult(99), Balance.starMult(10)))
+check("legacy points need a lot of earnings", Balance.legacyPoints(0) == 0 and Balance.legacyPoints(5e7) == 4 and Balance.legacyPoints(2e9) > Balance.legacyPoints(5e8))
+check("legacy multiplier is linear", near(Balance.legacyMult(0), 1) and near(Balance.legacyMult(10), 3))
+check("heirloom slots are capped", Balance.heirloomSlots(0) == 2 and Balance.heirloomSlots(30) == 5 and Balance.heirloomSlots(10000) == 8)
+check("offline earnings respect the cap and the minimum", (function()
+	local small = Balance.offlineEarnings(100, 60, 1, false)
+	local amount, counted = Balance.offlineEarnings(100, 10 * 3600, 1, false)
+	local patronAmount = Balance.offlineEarnings(100, 10 * 3600, 1, true)
+	return small == 0 and counted == 4 * 3600 and amount == 100 * 4 * 3600 * 0.25 and patronAmount > amount
+end)())
+check("daily rewards escalate and loop", Balance.dailyMinutes(1) == 10 and Balance.dailyMinutes(7) == 90 and Balance.dailyMinutes(8) == 11)
+check("collection bonus caps at 20 percent", near(Balance.collectionBonus(0), 0) and near(Balance.collectionBonus(50), 0.1) and near(Balance.collectionBonus(100), 0.2) and near(Balance.collectionBonus(500), 0.2))
+check("income minutes have a floor", Balance.incomeMinutes(0, 10) == 10 * 60 * 10 and Balance.incomeMinutes(1000, 1) == 60000)
+check("quest days and weeks are stable", Quests.dayId(86400) == 1 and Quests.weekId(4 * 86400) == 1 and Quests.weekId(4 * 86400 - 1) == 0)
+check("every quest has a text and a goal", (function()
+	for _, group in Quests.daily do
+		for _, quest in group do
+			if not quest.text or not (quest.goal or quest.minutes) then
+				return false
+			end
+		end
+	end
+	for _, quest in Quests.weekly do
+		if not quest.text or not (quest.goal or quest.minutes) then
+			return false
+		end
+	end
+	return true
+end)())
+check("pet bonus grows with level and caps", Pets.bonusOf("cat", 1) == 0.04 and Pets.bonusOf("cat", 3) > Pets.bonusOf("cat", 2) and Pets.bonusOf("cat", 99) == Pets.bonusOf("cat", 10) and Pets.bonusOf("nope", 1) == 0)
+check("pet rolls respect the minimum rarity", (function()
+	local random = stubRandom(7)
+	for _ = 1, 200 do
+		local pet = Pets.roll(random, Pets.rarityIndex("epic"))
+		if Pets.rarityIndex(pet.rarity) < Pets.rarityIndex("epic") then
+			return false
+		end
+	end
+	return true
+end)())
 
 check("7 outfits from starter to haredi", #Outfits.list == 7 and Outfits.list[1].id == "starter" and Outfits.list[7].id == "haredi")
 check("outfit tiers are 1 to 7 in order", (function()
@@ -115,10 +164,16 @@ check("first offer is a common siddur at 50", Items.item("siddur_common").price 
 check("item models use the category name", Items.item("menorah_epic").model == "menorah")
 check("prices grow with rarity", Items.item("ark_mythical").price > Items.item("ark_legendary").price and Items.item("ark_rare").price > Items.item("ark_uncommon").price)
 check("merging is cheaper than buying the next rarity", Items.item("siddur_uncommon").price > 3 * Items.item("siddur_common").price)
-check("merge chain ends at mythical", Items.item("siddur_common").mergesTo == "siddur_uncommon" and Items.item("siddur_mythical").mergesTo == nil)
+check("merge chain ends at mythical then turns into stars", Items.item("siddur_common").mergesTo == "siddur_uncommon" and Items.item("siddur_mythical").mergesTo == nil and Items.item("siddur_mythical").starMerge == true)
+check("merge results", (function()
+	local rarity = Items.mergeResult("siddur_common", 0)
+	local star = Items.mergeResult("siddur_mythical", 2)
+	local capped = Items.mergeResult("siddur_mythical", Items.MAX_STAR)
+	return rarity.id == "siddur_uncommon" and rarity.star == 0 and star.id == "siddur_mythical" and star.star == 3 and capped == nil and Items.mergeResult("nope", 0) == nil
+end)())
 check("torah scrolls can never be merged away", (function()
 	for _, entry in Items.list do
-		if entry.category == "torah" and entry.mergesTo ~= nil then
+		if entry.category == "torah" and (entry.mergesTo ~= nil or entry.starMerge ~= nil or Items.mergeResult(entry.id, 0) ~= nil) then
 			return false
 		end
 	end
@@ -138,10 +193,11 @@ check("every category has a slot prefix", (function()
 	end
 	return true
 end)())
-check("growth is clamped", Items.growth(Items.item("siddur_common"), -5) == 0 and Items.growth(Items.item("siddur_common"), 9999) == 1 and near(Items.growth(Items.item("siddur_common"), 22.5), 0.5))
+check("growth is clamped", Items.growth(Items.item("siddur_common"), -5) == 0 and Items.growth(Items.item("siddur_common"), 9999) == 1 and near(Items.growth(Items.item("siddur_common"), 30), 0.5))
 check("young items earn less", near(Items.maturityFactor(0), 0.4) and near(Items.maturityFactor(1), 1) and Items.maturityFactor(0.5) > Items.maturityFactor(0.2))
-check("mutations multiply income", near(Items.bonusOf(Items.item("menorah_rare"), 1, "gilded"), Items.item("menorah_rare").bonus * 1.5) and near(Items.bonusOf(Items.item("menorah_rare"), 1, nil), Items.item("menorah_rare").bonus))
-check("display name shows the mutation", Items.displayName(Items.item("siddur_common"), "radiant") == "Radiant Simple Siddur" and Items.displayName(Items.item("siddur_common"), nil) == "Simple Siddur")
+check("mutations multiply income", near(Items.bonusOf(Items.item("menorah_rare"), 1, "gilded"), Items.item("menorah_rare").bonus * 3) and near(Items.bonusOf(Items.item("menorah_rare"), 1, nil), Items.item("menorah_rare").bonus))
+check("stars multiply income", near(Items.bonusOf(Items.item("menorah_rare"), 1, nil, 1), Items.item("menorah_rare").bonus * 4))
+check("display name shows the mutation and stars", Items.displayName(Items.item("siddur_common"), "radiant") == "Radiant Simple Siddur" and Items.displayName(Items.item("siddur_common"), nil) == "Simple Siddur" and Items.displayName(Items.item("siddur_common"), nil, 3) == "Simple Siddur +3")
 check("stock is the same on every server", (function()
 	local a, b = Items.stockFor(5973453, stubRandom), Items.stockFor(5973453, stubRandom)
 	for id, count in a do
@@ -151,30 +207,65 @@ check("stock is the same on every server", (function()
 	end
 	return true
 end)())
-check("the first siddur is always in stock", (function()
+check("the first siddur is always on the starter shelf", (function()
 	for epoch = 1, 200 do
-		if Items.stockFor(epoch, stubRandom)["siddur_common"] < 3 then
+		if Items.stockFor(epoch, stubRandom)["siddur_common"] < Items.STARTER_SHELF.quantity then
 			return false
 		end
 	end
 	return true
+end)())
+check("pity gives a rare or better every few restocks", (function()
+	local order = {}
+	for index, rarity in Items.RARITIES do
+		order[rarity.id] = index
+	end
+	for epoch = 6, 600, 6 do
+		local best = 0
+		for id, count in Items.stockFor(epoch, stubRandom) do
+			if count > 0 then
+				best = math.max(best, order[Items.item(id).rarity])
+			end
+		end
+		if best < order.rare then
+			return false
+		end
+	end
+	return true
+end)())
+check("pity gives a legendary every sixty restocks", (function()
+	local found = false
+	for id, count in Items.stockFor(60, stubRandom) do
+		if count > 0 and Items.item(id).rarity == "legendary" or (count > 0 and Items.item(id).rarity == "mythical") then
+			found = true
+		end
+	end
+	return found
 end)())
 check("rare items are rarer than common ones", (function()
 	local common, mythical = 0, 0
 	for epoch = 1, 300 do
 		local stock = Items.stockFor(epoch, stubRandom)
 		for _, category in Items.CATEGORIES do
-			if stock[category.id .. "_common"] > 0 then
+			if (stock[category.id .. "_common"] or 0) > 0 then
 				common += 1
 			end
-			if stock[category.id .. "_mythical"] > 0 then
+			if (stock[category.id .. "_mythical"] or 0) > 0 then
 				mythical += 1
 			end
 		end
 	end
 	return common > mythical * 5
 end)())
-check("restock epoch changes every five minutes", Items.epochOf(0) == 0 and Items.epochOf(299) == 0 and Items.epochOf(300) == 1)
+check("odds table sums to 100", (function()
+	local rows = Items.oddsTable()
+	local total = 0
+	for _, row in rows do
+		total += row.percent
+	end
+	return math.abs(total - 100) < 1e-6
+end)())
+check("restock epoch follows the restock length", Items.epochOf(0) == 0 and Items.epochOf(299) == 0 and Items.epochOf(300) == 1 and Items.epochOf(239, 240) == 0 and Items.epochOf(240, 240) == 1)
 check("saved items are sanitized", (function()
 	local cleaned = Items.cleanSaved({
 		{ uid = "i1", id = "siddur_common", slot = "Slot_Siddur1", grown = 12, since = 1000, mut = "gilded" },
@@ -183,7 +274,7 @@ check("saved items are sanitized", (function()
 		{ uid = "i3", id = "torah_common", grown = -5, mut = "bad" },
 		"junk",
 	})
-	return #cleaned == 2 and cleaned[1].mut == "gilded" and cleaned[2].grown == 0 and cleaned[2].mut == nil
+	return #cleaned == 2 and cleaned[1].mut == "gilded" and cleaned[2].grown == 0 and cleaned[2].mut == nil and cleaned[1].star == 0
 end)())
 check("bad saved data is empty", #Items.cleanSaved(nil) == 0 and #Items.cleanSaved("x") == 0)
 

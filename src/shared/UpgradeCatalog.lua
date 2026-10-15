@@ -1,3 +1,5 @@
+local Balance = require(script and script.Parent.Balance or "./Balance")
+
 local UpgradeCatalog = {}
 
 UpgradeCatalog.list = {
@@ -6,10 +8,9 @@ UpgradeCatalog.list = {
 		name = "Welcome Table",
 		blurb = "Friendly greeters bring people in faster",
 		effect = "arrival_speed",
-		perLevel = 0.25,
+		perLevel = 0.05,
 		baseCost = 400,
-		growth = 4,
-		maxLevel = 5,
+		maxLevel = math.huge,
 		color = { 86, 156, 255 },
 	},
 	{
@@ -17,21 +18,19 @@ UpgradeCatalog.list = {
 		name = "Kiddush Table",
 		blurb = "Refreshments earn a gift from each new arrival",
 		effect = "arrival_tip",
-		perLevel = 3,
+		perLevel = 10,
 		baseCost = 600,
-		growth = 4,
-		maxLevel = 5,
+		maxLevel = math.huge,
 		color = { 255, 154, 72 },
 	},
 	{
 		id = "membership_desk",
 		name = "Membership Desk",
-		blurb = "Members chip in every second",
-		effect = "dues",
-		perLevel = 0.15,
+		blurb = "Members support the synagogue, raising all income",
+		effect = "income",
+		perLevel = 0.04,
 		baseCost = 900,
-		growth = 4,
-		maxLevel = 5,
+		maxLevel = math.huge,
 		color = { 94, 214, 130 },
 	},
 }
@@ -50,22 +49,26 @@ function UpgradeCatalog.cost(definition, level)
 	if level >= definition.maxLevel then
 		return nil
 	end
-	return math.floor(definition.baseCost * definition.growth ^ level + 0.5)
+	local value = Balance.upgradeCost(definition.baseCost, level)
+	if value > Balance.COST_CEILING then
+		return nil
+	end
+	return value
 end
 
 local function levelOf(levels, id)
 	local value = levels and levels[id]
-	if type(value) ~= "number" then
+	if type(value) ~= "number" or value ~= value or value < 0 then
 		return 0
 	end
-	return value
+	return math.floor(value)
 end
 
 local function effectTotal(levels, effect)
 	local total = 0
 	for _, definition in UpgradeCatalog.list do
 		if definition.effect == effect then
-			total += definition.perLevel * levelOf(levels, definition.id)
+			total += Balance.upgradeTotal(definition.perLevel, levelOf(levels, definition.id))
 		end
 	end
 	return total
@@ -80,11 +83,21 @@ function UpgradeCatalog.tip(levels, tier)
 	if base <= 0 then
 		return 0
 	end
-	return math.floor(base * (1 + (tier or 1) * 0.5) + 0.5)
+	return math.floor(base * Balance.tierMult(tier) + 0.5)
 end
 
-function UpgradeCatalog.duesPerSecond(levels, congregation)
-	return effectTotal(levels, "dues") * math.max(0, congregation or 0)
+function UpgradeCatalog.incomeMult(levels)
+	return 1 + effectTotal(levels, "income")
+end
+
+function UpgradeCatalog.duesPerSecond()
+	return 0
+end
+
+function UpgradeCatalog.describe(definition, level)
+	local total = Balance.upgradeTotal(definition.perLevel, level)
+	local nextTotal = Balance.upgradeTotal(definition.perLevel, level + 1)
+	return total, nextTotal - total
 end
 
 return UpgradeCatalog

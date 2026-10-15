@@ -9,6 +9,9 @@ local ItemService = require(script.Parent.ItemService)
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Constants = require(Shared:WaitForChild("Constants"))
 local ItemCatalog = require(Shared:WaitForChild("ItemCatalog"))
+local Balance = require(Shared:WaitForChild("Balance"))
+local IncomeService = require(script.Parent.IncomeService)
+local Signal = require(script.Parent.Signal)
 
 local ProgressionFallback = {}
 
@@ -31,8 +34,7 @@ local DENOMINATIONS = {
 	},
 }
 
-local TIER_COST = { [2] = 2500, [3] = 10000, [4] = 40000, [5] = 150000, [6] = 600000, [7] = 2500000 }
-local INCOME_MULT = { 1, 1.5, 2, 3, 4.5, 6.5, 10 }
+ProgressionFallback.TierChanged = Signal.new()
 
 local REMOTES = {
 	RF_GetCatalog = "RemoteFunction",
@@ -67,37 +69,37 @@ local function fail(reason)
 	return { ok = false, reason = reason }
 end
 
-local function catalog()
+local function catalog(player)
+	local rarityOdds, mutationOdds = ItemCatalog.oddsTable()
 	local upgrades = {}
 	for tier = 2, Constants.MAX_TIER do
-		upgrades[tier] = { cost = TIER_COST[tier], requirement = "Needs land tier " .. (tier - 1) }
+		upgrades[tier] = { cost = Balance.tierCost(tier), requirement = "Needs land tier " .. (tier - 1) }
 	end
 	return {
-		items = ItemService.catalogItems(),
+		items = ItemService.catalogItems(player),
 		buildings = {},
 		packs = {},
 		boosts = {},
 		denominations = DENOMINATIONS,
 		upgrades = upgrades,
 		rarityColors = ItemCatalog.rarityColors(),
-		restockAt = ItemService.restockAt(),
+		restockAt = ItemService.restockAt(player),
+		restockSeconds = player:GetAttribute("ShopRestockSeconds") or ItemCatalog.RESTOCK_SECONDS,
+		odds = { rarities = rarityOdds, mutations = mutationOdds },
+		starterShelf = ItemCatalog.STARTER_SHELF.id,
+		pity = ItemCatalog.PITY,
+		shopSlots = ItemCatalog.SHOP_SLOTS,
 	}
 end
 
 local function refreshIncome(player)
-	if not active() or not Guard.isPlayer(player) then
-		return
-	end
-	local value = (INCOME_MULT[tierOf(player)] or 1) * (1 + ItemService.bonus(player))
-	value = math.floor(value * 1000 + 0.5) / 1000
-	if player:GetAttribute("IncomeMult") ~= value then
-		player:SetAttribute("IncomeMult", value)
-	end
+	IncomeService.refresh(player)
 end
 
 local function setTier(player, tier)
 	player:SetAttribute("Tier", tier)
 	refreshIncome(player)
+	ProgressionFallback.TierChanged:Fire(player, tier)
 end
 
 local function chooseDenomination(player, id)
@@ -146,13 +148,20 @@ local function upgradeBuilding(player)
 		Notify.send(player, "error", "Expand your land to tier " .. (target - 1) .. " first")
 		return fail("requirements_not_met")
 	end
-	local cost = TIER_COST[target]
+	local cost = Balance.tierCost(target)
 	if not Economy.spend(player, cost, "upgrade_tier_" .. target) then
 		return fail("not_enough_money")
 	end
 	setTier(player, target)
 	Notify.send(player, "success", "Your synagogue grew into " .. STAGES[target - 1] .. "!")
 	return { ok = true }
+end
+
+function ProgressionFallback.resetTier(player)
+	if not active() then
+		return
+	end
+	setTier(player, 1)
 end
 
 function ProgressionFallback.serialize(player)

@@ -8,6 +8,7 @@ local Fx = require(core.Fx)
 local Format = require(core.Format)
 local Procedural = require(core.Procedural)
 local Assets = require(core.Assets)
+local StationLayout = require(core.StationLayout)
 local UpgradeService = require(core.UpgradeService)
 local Catalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
 
@@ -16,8 +17,9 @@ local UpgradeStations = {
 	order = 20,
 }
 
-local LATERALS = { -5, 5, -9.8, 9.8 }
-local DEPTH_INSIDE = 3.6
+local PIP_COUNT = 5
+local CROWN_LEVEL = 25
+local SLOT_OF = { kiddush_table = 1, welcome_table = 2, membership_desk = 3 }
 local GOLD = Color3.fromRGB(255, 214, 80)
 local PIP_OFF = Color3.fromRGB(96, 96, 112)
 
@@ -56,9 +58,9 @@ end
 local function buildGui(top, definition, lateral)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StationSign"
-	gui.Size = UDim2.fromOffset(200, 80)
+	gui.Size = UDim2.fromOffset(150, 60)
 	gui.StudsOffset = Vector3.new(0, math.abs(lateral) > 7 and 6.6 or 4.4, 0)
-	gui.MaxDistance = 14
+	gui.MaxDistance = 11
 	gui.LightInfluence = 0
 	gui.Adornee = top
 	gui.Parent = top
@@ -88,7 +90,7 @@ local function refresh(station, definition, level)
 	local gui = station.top:FindFirstChild("StationSign")
 	local cost = Catalog.cost(definition, level)
 	if gui then
-		gui.Level.Text = "Level " .. level .. " / " .. definition.maxLevel
+		gui.Level.Text = level == 0 and "Not built yet" or ("Level " .. Format.short(level))
 		gui.Cost.Text = cost and ("Upgrade: " .. Format.short(cost)) or "MAX LEVEL"
 	end
 	station.prompt.ObjectText = definition.name
@@ -99,16 +101,18 @@ local function refresh(station, definition, level)
 		station.prompt.ActionText = "Maxed out"
 		station.prompt.Enabled = false
 	end
+	local lit = level == 0 and 0 or ((level - 1) % PIP_COUNT) + 1
 	for index, pip in station.pips do
-		pip.Color = index <= level and GOLD or PIP_OFF
-		pip.Material = index <= level and Enum.Material.Neon or Enum.Material.SmoothPlastic
+		pip.Color = index <= lit and GOLD or PIP_OFF
+		pip.Material = index <= lit and Enum.Material.Neon or Enum.Material.SmoothPlastic
 	end
-	local maxed = level >= definition.maxLevel
+	local crowned = level >= CROWN_LEVEL
+	local glow = math.min(level, 20)
 	station.light.Enabled = level > 0
-	station.light.Brightness = 0.6 + level * 0.5
-	station.light.Range = 10 + level * 3
-	station.sparkles.Rate = level * 3 + (maxed and 10 or 0)
-	station.crown.Transparency = maxed and 0.1 or 1
+	station.light.Brightness = 0.6 + glow * 0.25
+	station.light.Range = 10 + glow * 1.2
+	station.sparkles.Rate = math.min(level, 20) * 2 + (crowned and 10 or 0)
+	station.crown.Transparency = crowned and 0.1 or 1
 end
 
 local function trigger(context, definition, station, who)
@@ -131,13 +135,9 @@ local function trigger(context, definition, station, who)
 	end
 end
 
-local function buildStation(context, definition, lateral)
-	local info = context.info
-	local frame = info.floor.CFrame
-	local door = frame:PointToObjectSpace(info.door.Position)
-	local worldPosition = (frame * CFrame.new(door.X + lateral, 0, door.Z + DEPTH_INSIDE)).Position
-	local base = Vector3.new(worldPosition.X, info.floorTopY, worldPosition.Z)
-	local cf = CFrame.lookAt(base, base + frame.LookVector)
+local function buildStation(context, definition, slot)
+	local lateral = slot.lateral
+	local cf = slot.cframe
 	local color = colorOf(definition)
 	local model, top
 	local pips = {}
@@ -148,7 +148,7 @@ local function buildStation(context, definition, lateral)
 		Assets.setPassive(model)
 		model:PivotTo(cf)
 		top = model:FindFirstChild("Top", true)
-		for index = 1, definition.maxLevel do
+		for index = 1, PIP_COUNT do
 			local marker = model:FindFirstChild("Pip" .. index, true)
 			if marker then
 				local pip = place(model, "Pip" .. index, Vector3.one * 0.42, marker.CFrame, PIP_OFF, nil, {
@@ -178,8 +178,8 @@ local function buildStation(context, definition, lateral)
 		place(model, "Base", Vector3.new(3.2, 2.4, 2.2), cf * CFrame.new(0, 1.2, 0), Config.COLORS.woodDark)
 		top = place(model, "Top", Vector3.new(3.6, 0.4, 2.6), cf * CFrame.new(0, 2.6, 0), color)
 		place(model, "Riser", Vector3.new(3.2, 2.4, 0.35), cf * CFrame.new(0, 4.0, 1.0), color)
-		for index = 1, definition.maxLevel do
-			local offset = (index - (definition.maxLevel + 1) / 2) * 0.55
+		for index = 1, PIP_COUNT do
+			local offset = (index - (PIP_COUNT + 1) / 2) * 0.55
 			pips[index] = place(model, "Pip" .. index, Vector3.new(0.45, 0.45, 0.2), cf * CFrame.new(offset, 4.7, 0.76), PIP_OFF, nil, { CanCollide = false })
 		end
 		decorate(model, definition, cf, color)
@@ -227,10 +227,11 @@ end
 
 function UpgradeStations.build(context)
 	context.stations = {}
-	for index, definition in Catalog.list do
-		local lateral = LATERALS[index]
-		if lateral then
-			context.stations[definition.id] = buildStation(context, definition, lateral)
+	local slots = StationLayout.compute(context)
+	for _, definition in Catalog.list do
+		local slot = slots[SLOT_OF[definition.id] or 0]
+		if slot then
+			context.stations[definition.id] = buildStation(context, definition, slot)
 		end
 	end
 end
