@@ -55,9 +55,6 @@ local function colorize(root)
 		elseif string.sub(part.Name, 1, 4) == "Glow" then
 			part.Material = Enum.Material.Neon
 		end
-		if part:IsA("MeshPart") then
-			part.CollisionFidelity = Enum.CollisionFidelity.Box
-		end
 	end
 	return count
 end
@@ -81,6 +78,13 @@ local function fixBuilding(model)
 	if not floor or not door then
 		say("ERROR: the model needs parts named Floor and Door")
 		return
+	end
+	for _, part in allParts(model) do
+		part.CanCollide = part == floor
+		part.CanTouch = false
+	end
+	if floor:IsA("MeshPart") then
+		floor.CollisionFidelity = Enum.CollisionFidelity.Box
 	end
 	local seats = makeFolder(model, "Seats")
 	local slots = makeFolder(model, "Slots")
