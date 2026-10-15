@@ -5,15 +5,15 @@ local Notify = require(core.Notify)
 local Fx = require(core.Fx)
 local Procedural = require(core.Procedural)
 local Assets = require(core.Assets)
+local StationLayout = require(core.StationLayout)
 local CosmeticsService = require(core.CosmeticsService)
+local GameService = require(core.GameService)
 
 local Wardrobe = {
 	name = "Wardrobe",
 	order = 25,
 }
 
-local LATERAL = 9.8
-local DEPTH_INSIDE = 3.6
 local GOLD = Color3.fromRGB(255, 214, 80)
 
 local place = Procedural.place
@@ -21,9 +21,9 @@ local place = Procedural.place
 local function buildGui(top)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "StationSign"
-	gui.Size = UDim2.fromOffset(200, 80)
+	gui.Size = UDim2.fromOffset(150, 60)
 	gui.StudsOffset = Vector3.new(0, 6.2, 0)
-	gui.MaxDistance = 14
+	gui.MaxDistance = 11
 	gui.LightInfluence = 0
 	gui.Adornee = top
 	gui.Parent = top
@@ -68,17 +68,13 @@ local function refresh(station, player)
 		gui.Level.Text = info.name .. (info.auto and " (auto)" or "")
 		gui.Cost.Text = info.style == "modest" and "Modest dress" or "Classic dress"
 	end
-	station.outfitPrompt.ActionText = "Next outfit"
+	station.outfitPrompt.ActionText = "Open Wardrobe"
 	station.stylePrompt.ActionText = info.style == "modest" and "Style: modest" or "Style: classic"
 end
 
 function Wardrobe.build(context)
-	local info = context.info
-	local frame = info.floor.CFrame
-	local door = frame:PointToObjectSpace(info.door.Position)
-	local worldPosition = (frame * CFrame.new(door.X + LATERAL, 0, door.Z + DEPTH_INSIDE)).Position
-	local base = Vector3.new(worldPosition.X, info.floorTopY, worldPosition.Z)
-	local cf = CFrame.lookAt(base, base + frame.LookVector)
+	local slot = StationLayout.compute(context)[4]
+	local cf = slot.cframe
 	local model, glass
 	local source = Assets.get("station_mirror")
 	if source and source:IsA("Model") then
@@ -134,7 +130,7 @@ function Wardrobe.build(context)
 	end
 	outfitPrompt.Triggered:Connect(function(who)
 		if allowed(who) then
-			CosmeticsService.cycleOutfit(who)
+			GameService.send(who, "open", { panel = "wardrobe" })
 			Fx.sparkle(glass.Position + Vector3.new(0, 2, 0))
 			Fx.sound(glass.Position, Config.SOUNDS.pop, 0.6, 1.1)
 		end

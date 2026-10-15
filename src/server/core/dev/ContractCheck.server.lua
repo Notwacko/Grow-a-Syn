@@ -89,8 +89,9 @@ local function checkBuilding(name, model)
 		table.insert(problems, "no Door part")
 	else
 		local height = math.max(door.Size.X, door.Size.Y, door.Size.Z)
-		if math.abs(height - 9) > 1.5 then
-			table.insert(problems, string.format("Door is %.1f studs tall, expected about 9 (run the import fixer)", height))
+		local expected = 9
+		if math.abs(height - expected) > 1.5 then
+			table.insert(problems, string.format("Door is %.1f studs tall, expected about %.1f (run the import fixer)", height, expected))
 		end
 	end
 	local seatsFolder = model:FindFirstChild("Seats", true)
@@ -271,7 +272,22 @@ for _, name in { "kippah", "tallit" } do
 	end
 end
 
-for _, name in { "prop_tree", "prop_fence", "prop_bench", "prop_lamp" } do
+local ASSETS = {
+	"prop_tree", "prop_tree2", "prop_tree3", "prop_bush", "prop_rock", "prop_fence", "prop_bench", "prop_lamp", "prop_flowers",
+	"prop_wildflower", "prop_fountain", "prop_plaza", "prop_pathtile", "prop_sign", "prop_gate_pillar", "prop_padring",
+	"prop_spawnpad", "prop_flag", "prop_balloon", "station_welcome", "station_kiddush", "station_desk", "station_mirror",
+	"torah", "ark", "siddur", "menorah", "kiddush_cup", "chandelier", "ornament", "holiday_decor",
+	"ofit_kippah", "ofit_kippah_knit", "ofit_hat_fedora", "ofit_hat_wide", "ofit_hat_modest", "ofit_shtreimel", "ofit_tichel",
+	"ofit_beard", "ofit_peyot", "ofit_jacket_closed", "ofit_jacket_open", "ofit_tie", "ofit_coat_long", "ofit_gartel",
+	"ofit_tzitzit", "ofit_socks", "ofit_skirt_long", "ofit_tallit",
+	"ofit_tallit_royal", "ofit_tallit_gold", "ofit_tallit_rainbow", "ofit_tallit_stone", "ofit_tallit_stars", "ofit_kippah_rainbowknit",
+	"ofit_kippah_goldvelvet", "ofit_kippah_starry", "ofit_kippah_stripes", "ofit_kippah_emerald", "ofit_kippah_purple", "ofit_cape_royal",
+	"ofit_cape_gold", "ofit_cape_starry", "ofit_wings_dove", "ofit_wings_gold", "ofit_pack_satchel", "ofit_pack_challah", "ofit_pack_candles",
+	"ofit_hat_flowers", "ofit_hat_crown", "ofit_hat_sunhat", "ofit_glasses_gold", "ofit_bowtie_blue", "ofit_hair_short", "ofit_hair_long",
+	"ofit_hair_bun", "ofit_hair_curly", "ofit_hair_pony", "pet_cat", "pet_lamb", "pet_puppy", "pet_dove", "pet_fox", "pet_hedgehog",
+	"pet_lion_cub", "pet_peacock",
+}
+for _, name in ASSETS do
 	local model = lookup(name)
 	if model then
 		ok(name)

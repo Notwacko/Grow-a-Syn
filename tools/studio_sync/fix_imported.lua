@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local DOOR_HEIGHT = 9
-local STARTER_SCALE = 1.2
+local STARTER_SCALE = 1.0
 local TALLIT_NECK_OFFSET = 0.99
 
 local NAMES = {
