@@ -145,7 +145,24 @@ local function freeSlot(player, inventory, category)
 	return nil
 end
 
+local function updateTorahCount(player)
+	local inventory = inventories[player]
+	local count = 0
+	if inventory then
+		for _, entry in inventory.items do
+			local info = ItemCatalog.item(entry.id)
+			if info and info.category == "torah" then
+				count += 1
+			end
+		end
+	end
+	if Guard.isPlayer(player) and player:GetAttribute("TorahCount") ~= count then
+		player:SetAttribute("TorahCount", count)
+	end
+end
+
 local function notifyChanged(player, kind, uid)
+	updateTorahCount(player)
 	if changedRemote and Guard.isPlayer(player) then
 		changedRemote:FireClient(player)
 	end
@@ -273,6 +290,7 @@ function ItemService.init(player, saved)
 		table.insert(inventory.items, entry)
 	end
 	inventories[player] = inventory
+	updateTorahCount(player)
 	shopOf(player)
 end
 
