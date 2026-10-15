@@ -11,6 +11,8 @@ Sound.IDS = {
 	minyan = "",
 	tier = "",
 	error = "",
+	expand = "",
+	upgrade = "",
 }
 
 local cache = {}

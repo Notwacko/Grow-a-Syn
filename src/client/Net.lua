@@ -81,6 +81,7 @@ local function normalizeCatalog(raw)
 	for _, key in { "items", "buildings", "packs", "boosts", "denominations" } do
 		raw[key] = raw[key] or {}
 	end
+	raw.upgrades = raw.upgrades or {}
 	raw.byId = {}
 	for _, key in { "items", "buildings", "packs", "boosts" } do
 		for _, entry in raw[key] do

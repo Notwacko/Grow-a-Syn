@@ -69,6 +69,21 @@ Contract.SlotsByCategory = {
 	holiday_decor = { "Slot_HolidayDecor1", "Slot_HolidayDecor2", "Slot_HolidayDecor3", "Slot_HolidayDecor4" },
 }
 
+-- Mirrors A's Config (LAND_COSTS[tier] pays for tier -> tier+1, LAND_BOUNDS) and Constants.SEATS_PER_TIER
+Contract.LAND_COSTS = { 750, 4000, 20000, 100000, 500000 }
+Contract.MAX_LAND_TIER = 6
+Contract.CLAIM_DISTANCE = 26
+Contract.LAND_BOUNDS = {
+	{ x1 = -50, x2 = 50, z1 = 0, z2 = 100 },
+	{ x1 = -50, x2 = 50, z1 = 0, z2 = 140 },
+	{ x1 = -80, x2 = 50, z1 = 0, z2 = 140 },
+	{ x1 = -80, x2 = 80, z1 = 0, z2 = 140 },
+	{ x1 = -80, x2 = 80, z1 = 0, z2 = 190 },
+	{ x1 = -80, x2 = 80, z1 = 0, z2 = 240 },
+}
+Contract.SEATS_PER_TIER = { 12, 20, 30, 42, 56, 72, 100 }
+-- ASSUMED: catalog.upgrades[targetTier] = { cost = number, requirement = "short text" } (optional)
+
 Contract.CategoryNames = {
 	torah = "Sefer Torah",
 	ark = "Aron Kodesh",

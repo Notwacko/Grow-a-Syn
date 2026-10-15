@@ -52,6 +52,13 @@ local CATALOG = {
 		{ id = "boost_4x", name = "Money", mult = 4, duration = 600, robux = 149 },
 		{ id = "boost_8x", name = "Money", mult = 8, duration = 1800, robux = 399 },
 	},
+	upgrades = {
+		[3] = { cost = 2500, requirement = "Fill every seat" },
+		[4] = { cost = 15000, requirement = "Fill every seat" },
+		[5] = { cost = 90000, requirement = "Fill every seat" },
+		[6] = { cost = 500000, requirement = "Fill every seat" },
+		[7] = { cost = 2500000, requirement = "Fill every seat" },
+	},
 	denominations = {
 		{ id = "ashkenazi", name = "Ashkenazi", blurb = "Warm, choir-filled services and a classic hall.", model = "ashkenazi_T2", stages = ASH },
 		{ id = "sephardic", name = "Sephardic", blurb = "Rich colors, carved wood and a proud central bimah.", model = "sephardic_T2", stages = placeholderStages("Sephardic") },
@@ -216,12 +223,30 @@ return function(Net, newSignal)
 		if tier >= 7 then
 			return { ok = false, reason = "locked" }
 		end
+		local cost = CATALOG.upgrades[tier + 1].cost
+		local money = player:GetAttribute("Money")
+		if money < cost then
+			return { ok = false, reason = "not_enough_money" }
+		end
+		player:SetAttribute("Money", money - cost)
 		setTier(tier + 1)
 		return { ok = true }
 	end
 
+	local LAND_COSTS = { 750, 4000, 20000, 100000, 500000 }
 	function mock.expandLand()
-		player:SetAttribute("LandTier", math.min(6, player:GetAttribute("LandTier") + 1))
+		local tier = player:GetAttribute("LandTier")
+		if tier >= 6 then
+			Net.Notified:fire("info", "Your land is fully expanded")
+			return { ok = false, reason = "locked" }
+		end
+		local money = player:GetAttribute("Money")
+		if money < LAND_COSTS[tier] then
+			Net.Notified:fire("error", "Not enough money to expand")
+			return { ok = false, reason = "not_enough_money" }
+		end
+		player:SetAttribute("Money", money - LAND_COSTS[tier])
+		player:SetAttribute("LandTier", tier + 1)
 		return { ok = true }
 	end
 
