@@ -544,7 +544,7 @@ function C.modelView(parent, modelName, o)
 	view.CurrentCamera = camera
 	local radius = math.max(size.Magnitude / 2, 1)
 	local distance = radius / math.tan(math.rad(camera.FieldOfView / 2)) * 1.05
-	camera.CFrame = CFrame.lookAt(cf.Position + Vector3.new(0.6, 0.45, 1).Unit * distance, cf.Position)
+	camera.CFrame = CFrame.lookAt(cf.Position + Vector3.new(-0.6, 0.45, -1).Unit * distance, cf.Position)
 	return view
 end
 

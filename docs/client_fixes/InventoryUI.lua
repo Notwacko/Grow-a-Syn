@@ -220,12 +220,15 @@ function InventoryUI.new(ctx)
 			return
 		end
 		local catalog = Net.getCatalog()
+		local inventory = Net.getInventory()
+		if not popup or popup.closed then
+			return
+		end
 		for _, child in grid:GetChildren() do
 			if child:IsA("Frame") then
 				child:Destroy()
 			end
 		end
-		local inventory = Net.getInventory()
 		-- drop selections that no longer exist
 		local alive = {}
 		for _, entry in inventory do
@@ -271,13 +274,17 @@ function InventoryUI.new(ctx)
 	end
 
 	local function rebuildFilters()
+		local inventory = Net.getInventory()
+		if not popup or popup.closed then
+			return
+		end
 		for _, child in filterScroll:GetChildren() do
 			if child:IsA("Frame") then
 				child:Destroy()
 			end
 		end
 		local present = { all = true }
-		for _, entry in Net.getInventory() do
+		for _, entry in inventory do
 			local info = itemInfo(entry)
 			if info then
 				present[info.category] = true

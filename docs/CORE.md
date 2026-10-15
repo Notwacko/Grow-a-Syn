@@ -39,6 +39,9 @@ All numbers are in `src/server/core/Config.lua` (land costs, arrival timing, con
 - `tools/StudioImportFixer.lua` is pasted into the Studio command bar with one or more imported models selected. It colors parts from their names, makes glass transparent, builds the Seats and Slots folders, sets the PrimaryPart, scales buildings so the Door is 9 studs tall and builds the kippah and tallit Accessories.
 - `tools/tests/core_test.luau` runs with the `luau` CLI: `cd tools/tests && luau core_test.luau`.
 
+## Items and the shop
+Role B's catalog and inventory are not here yet, so core serves them (see `docs/MODULES.md`, "Item shop"). The catalog shape follows what role C's client reads: `items` with `id, name, category, rarity, price, model, mergesTo, stock, bonus, grow`, plus `rarityColors` and `restockAt`. The inventory is `{ items = { {uid, id, slot, growth, mutation} } }`. When role B is online they only need to replace the `OnServerInvoke` handlers. Item models are named after the category (`torah`, `ark`, `siddur`, `menorah`, `kiddush_cup`, `chandelier`, `ornament`, `holiday_decor`) and have an `Accent` part that the rarity skin recolors. Their pivot is the bottom center (the chandelier and the holiday banner hang from the top, the ornament is centered).
+
 ## Model pipeline
 Blender at 1 unit = 1 stud, FBX to `art/exports/` (not committed), Import 3D in Studio, run the fixer, right click and Save to File as `src/models/core/<name>.rbxm`, commit the `.rbxm`.
 
@@ -52,4 +55,4 @@ Studio's Import 3D reads these FBX files in centimeters, so people, props and ac
 
 Imported models keep a baked model scale, so always scale them with `model:ScaleTo(model:GetScale() * k)`. Calling `ScaleTo(k)` alone resets them to the raw 100 times size.
 
-`tools/studio_sync/receive.py` plus `SerializationService` was used to export the fixed models back to `src/models/core/*.rbxm`.
+`tools/studio_sync/receive.py` plus `SerializationService` was used to export the fixed models back to `src/models/core/*.rbxm`. Items use `tools/studio_sync/fix_items.lua` (the pivot rules differ) and the starter building is scaled by 1.2 in `fix_imported.lua`. The Blender sources for items, people and icons are in `tools/blender/src/` (they run through the Blender MCP, `kit2.py` is the shared builder).

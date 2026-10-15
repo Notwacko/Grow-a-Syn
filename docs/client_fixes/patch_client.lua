@@ -36,6 +36,11 @@ patch("Components", {
 		"\tlocal instance = ModelLookup.get(modelName)\n",
 		"\tlocal instance = ModelLookup.get(modelName)\n\tif o.rarity then\n\t\tItemSkin.apply(instance, o.rarity, o.mutation, false)\n\tend\n",
 	},
+	{
+		"modelView front camera",
+		"cf.Position + Vector3.new(0.6, 0.45, 1).Unit * distance",
+		"cf.Position + Vector3.new(-0.6, 0.45, -1).Unit * distance",
+	},
 })
 
 patch("Net", {
@@ -91,6 +96,16 @@ patch("InventoryUI", {
 		"card name",
 		"C.text(card.Frame, { text = info.name, size = \"XS\"",
 		"C.text(card.Frame, { text = displayName(info, entry), size = \"XS\"",
+	},
+	{
+		"rebuild fetches first",
+		"\t\tlocal catalog = Net.getCatalog()\n\t\tfor _, child in grid:GetChildren() do\n\t\t\tif child:IsA(\"Frame\") then\n\t\t\t\tchild:Destroy()\n\t\t\tend\n\t\tend\n\t\tlocal inventory = Net.getInventory()\n",
+		"\t\tlocal catalog = Net.getCatalog()\n\t\tlocal inventory = Net.getInventory()\n\t\tif not popup or popup.closed then\n\t\t\treturn\n\t\tend\n\t\tfor _, child in grid:GetChildren() do\n\t\t\tif child:IsA(\"Frame\") then\n\t\t\t\tchild:Destroy()\n\t\t\tend\n\t\tend\n",
+	},
+	{
+		"filters fetch first",
+		"\tlocal function rebuildFilters()\n\t\tfor _, child in filterScroll:GetChildren() do\n\t\t\tif child:IsA(\"Frame\") then\n\t\t\t\tchild:Destroy()\n\t\t\tend\n\t\tend\n\t\tlocal present = { all = true }\n\t\tfor _, entry in Net.getInventory() do",
+		"\tlocal function rebuildFilters()\n\t\tlocal inventory = Net.getInventory()\n\t\tif not popup or popup.closed then\n\t\t\treturn\n\t\tend\n\t\tfor _, child in filterScroll:GetChildren() do\n\t\t\tif child:IsA(\"Frame\") then\n\t\t\t\tchild:Destroy()\n\t\t\tend\n\t\tend\n\t\tlocal present = { all = true }\n\t\tfor _, entry in inventory do",
 	},
 	{
 		"card tag",
