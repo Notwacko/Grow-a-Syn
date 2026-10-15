@@ -50,7 +50,7 @@ Config.TUTORIAL_ARRIVAL_INTERVAL = 3
 Config.WALK_SPEED = 13
 Config.WALK_SPEED_RANGE = { 0.85, 1.2 }
 Config.MOVE_STEP = 1 / 30
-Config.MAX_FX_PARTS = 70
+Config.MAX_FX_PARTS = 120
 Config.TOTAL_CONGREGANT_CAP = 320
 Config.MIN_VISIBLE_PER_PLOT = 12
 Config.RECONCILE_INTERVAL = 1
@@ -62,6 +62,25 @@ Config.CONGREGANT_HIP = 2.6
 Config.CONGREGANT_VARIANTS = 6
 
 Config.EVENT_MULT_MAX = 100
+
+Config.SOUNDS = {
+	ping = "rbxasset://sounds/electronicpingshort.wav",
+	victory = "rbxasset://sounds/victory.wav",
+	launch = "rbxasset://sounds/Launching rocket.wav",
+	pop = "rbxasset://sounds/snap.mp3",
+	coin = "rbxasset://sounds/kerplunk.wav",
+	click = "rbxasset://sounds/button.wav",
+}
+
+Config.TIER_COLORS = {
+	Color3.fromRGB(255, 226, 150),
+	Color3.fromRGB(110, 190, 255),
+	Color3.fromRGB(94, 226, 150),
+	Color3.fromRGB(255, 190, 80),
+	Color3.fromRGB(255, 120, 150),
+	Color3.fromRGB(190, 140, 255),
+	Color3.fromRGB(255, 214, 80),
+}
 
 Config.COOLDOWNS = {
 	ClaimPlot = 1,

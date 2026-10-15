@@ -96,6 +96,12 @@ local function refresh(station, definition, level)
 		pip.Color = index <= level and GOLD or PIP_OFF
 		pip.Material = index <= level and Enum.Material.Neon or Enum.Material.SmoothPlastic
 	end
+	local maxed = level >= definition.maxLevel
+	station.light.Enabled = level > 0
+	station.light.Brightness = 0.6 + level * 0.5
+	station.light.Range = 10 + level * 3
+	station.sparkles.Rate = level * 3 + (maxed and 10 or 0)
+	station.crown.Transparency = maxed and 0.1 or 1
 end
 
 local function trigger(context, definition, station, who)
@@ -114,6 +120,7 @@ local function trigger(context, definition, station, who)
 		local position = station.top.Position
 		Fx.confetti(position + Vector3.new(0, 3, 0), 0.6)
 		Fx.floatText(position + Vector3.new(0, 7, 0), "LEVEL UP!", GOLD)
+		Fx.sound(position, Config.SOUNDS.ping, 0.8, 0.8 + UpgradeService.level(who, definition.id) * 0.12)
 	end
 end
 
@@ -137,6 +144,8 @@ local function buildStation(context, definition, lateral)
 		pips[index] = place(model, "Pip" .. index, Vector3.new(0.45, 0.45, 0.2), cf * CFrame.new(offset, 4.7, 0.76), PIP_OFF, nil, { CanCollide = false })
 	end
 	decorate(model, definition, cf, color)
+	local crown = Procedural.cylinder(model, "Crown", 3.4, 0.3, cf * CFrame.new(0, 6.1, 0.2), GOLD, Enum.Material.Neon)
+	crown.Transparency = 1
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.CanCollide = part.Name == "Base"
@@ -148,7 +157,23 @@ local function buildStation(context, definition, lateral)
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = top
 	buildGui(top, definition, lateral)
-	local station = { model = model, top = top, prompt = prompt, pips = pips }
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 12
+	light.Shadows = false
+	light.Enabled = false
+	light.Parent = top
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Rate = 0
+	sparkles.Lifetime = NumberRange.new(1.2, 1.8)
+	sparkles.Speed = NumberRange.new(2, 4)
+	sparkles.SpreadAngle = Vector2.new(30, 30)
+	sparkles.EmissionDirection = Enum.NormalId.Top
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.Color = ColorSequence.new(Color3.new(1, 1, 1), GOLD)
+	sparkles.LightEmission = 1
+	sparkles.Parent = top
+	local station = { model = model, top = top, prompt = prompt, pips = pips, light = light, sparkles = sparkles, crown = crown }
 	prompt.Triggered:Connect(function(who)
 		trigger(context, definition, station, who)
 	end)

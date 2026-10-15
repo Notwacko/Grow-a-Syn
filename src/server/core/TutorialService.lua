@@ -37,6 +37,9 @@ local function celebrateMinyan(player)
 		Fx.confetti(center, 2)
 		Fx.ring(Vector3.new(center.X, info.floorTopY + 0.5, center.Z), Color3.fromRGB(255, 214, 80), 50)
 		Fx.floatText(center + Vector3.new(0, 10, 0), "MINYAN!", Color3.fromRGB(255, 214, 80))
+		Fx.sound(center, Config.SOUNDS.victory, 0.8, 1)
+		local front = Vector3.new(info.door.Position.X, 1, info.door.Position.Z) + info.floor.CFrame.LookVector * 30
+		Fx.fireworkShow(front, 8, 48)
 	end
 	Notify.send(player, "success", "You have a minyan! Ten people are praying together")
 end

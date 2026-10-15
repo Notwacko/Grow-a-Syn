@@ -13,9 +13,23 @@ A module is a table with any of these:
 
 Modules shipped now:
 - `Collision` builds invisible walls with a 7.6 stud doorway around the interior (found from the seat and slot markers), a walkable deck when the door sits above the slab (T2), and moves anyone standing on a wall line out to the front of the door.
-- `UpgradeStations` builds one upgrade station per catalog entry just inside the door.
+- `UpgradeStations` builds one upgrade station per catalog entry just inside the door. Each level adds a glow and sparkles, a maxed station gets a gold crown.
+- `WarmLights` hangs warm point lights along the aisle and brightens them a little with every upgrade level.
+- `Beacon` raises a tier coloured pillar of light over the synagogue so it can be found from the plaza.
+- `Celebrate` fires fireworks, confetti and a "TIER N!" banner in front of the building when the tier goes up.
 
 `InteriorService.start()` also sets Invisicam camera occlusion (walls fade when the camera is outside) and a 350 stud max zoom so big buildings fit on screen.
+
+## Ambient modules
+Every ModuleScript inside `src/server/core/ambient/` is loaded by `AmbientService` at startup (after the plots exist), sorted by `order`, and its `build()` is called once. Use it for world decoration that does not belong to one player.
+
+Modules shipped now:
+- `Meadow` scatters flower clusters, rocks and trees over the open ground, away from the plaza, paths and plots.
+- `Motes` drifts glowing motes over the plaza and each plot.
+- `PlotBeacons` raises a gold pillar of light over every free ClaimPad and removes it when the plot is claimed.
+- `Balloons` floats colourful balloons around the sky.
+
+`Fx` (shared effect helpers) gained `firework`, `fireworkShow`, `beacon` and `sound`. Sound ids live in `Config.SOUNDS` and tier colours in `Config.TIER_COLORS`. `PlayerFx` gives each player a soft sparkle trail tinted by their tier.
 
 ## Upgrades
 `src/shared/UpgradeCatalog.lua` is pure data plus small functions. To add an upgrade, add a table to `UpgradeCatalog.list` (id, name, blurb, effect, perLevel, baseCost, growth, maxLevel, color). Station, saving and attribute `Upg_<id>` appear automatically (stations use fixed spots, four fit now).
