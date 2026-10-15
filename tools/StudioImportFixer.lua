@@ -55,9 +55,6 @@ local function colorize(root)
 		elseif string.sub(part.Name, 1, 4) == "Glow" then
 			part.Material = Enum.Material.Neon
 		end
-		if part:IsA("MeshPart") then
-			part.CollisionFidelity = Enum.CollisionFidelity.Box
-		end
 	end
 	return count
 end
@@ -81,6 +78,13 @@ local function fixBuilding(model)
 	if not floor or not door then
 		say("ERROR: the model needs parts named Floor and Door")
 		return
+	end
+	for _, part in allParts(model) do
+		part.CanCollide = part == floor
+		part.CanTouch = false
+	end
+	if floor:IsA("MeshPart") then
+		floor.CollisionFidelity = Enum.CollisionFidelity.Box
 	end
 	local seats = makeFolder(model, "Seats")
 	local slots = makeFolder(model, "Slots")
@@ -120,7 +124,7 @@ local function fixCongregant(model)
 		part.Anchored = true
 		part.CanCollide = false
 	end
-	local box, size = model:GetBoundingBox()
+	local _, size = model:GetBoundingBox()
 	say(string.format("congregant height %.2f studs (expected about 5.5, child 4.3). If wrong set SCALE_OVERRIDE at the top and rerun", size.Y))
 	if SCALE_OVERRIDE then
 		model:ScaleTo(model:GetScale() * SCALE_OVERRIDE)
@@ -179,39 +183,50 @@ local function buildAccessory(model, attachmentName)
 	return accessory
 end
 
+local function process(model)
+	local name = model.Name
+	local colored = colorize(model)
+	say(string.format("%s: colored %d parts", name, colored))
+	local result = model
+	if name == "starter" or string.match(name, "^%a+_T%d$") then
+		fixBuilding(model)
+	elseif string.match(name, "^congregant_%d$") then
+		fixCongregant(model)
+	elseif name == "kippah" then
+		result = buildAccessory(model, "HatAttachment")
+	elseif name == "tallit" then
+		result = buildAccessory(model, "NeckAttachment")
+	elseif string.sub(name, 1, 5) == "prop_" then
+		fixProp(model)
+	else
+		say("Unknown model name " .. name .. ". Rename it exactly as in the contract (starter, ashkenazi_T2, congregant_1, kippah, tallit, prop_tree...)")
+	end
+	return result
+end
+
 local selected = Selection:Get()
-local model = selected[1]
-if not model or not model:IsA("Model") then
-	say("Select the imported model (a Model in the Explorer) and run this again")
+local models = {}
+for _, item in selected do
+	if item:IsA("Model") then
+		table.insert(models, item)
+	end
+end
+if #models == 0 then
+	say("Select one or more imported models (Models in the Explorer) and run this again")
 	return
 end
 
 local recording = ChangeHistoryService:TryBeginRecording("ImportFixer")
-local name = model.Name
-local colored = colorize(model)
-say(string.format("%s: colored %d parts", name, colored))
-
-if name == "starter" or string.match(name, "^%a+_T%d$") then
-	fixBuilding(model)
-elseif string.match(name, "^congregant_%d$") then
-	fixCongregant(model)
-elseif name == "kippah" then
-	local accessory = buildAccessory(model, "HatAttachment")
-	if accessory then
-		Selection:Set({ accessory })
+local results = {}
+for _, model in models do
+	local name = model.Name
+	local result = process(model)
+	if result then
+		table.insert(results, result)
 	end
-elseif name == "tallit" then
-	local accessory = buildAccessory(model, "NeckAttachment")
-	if accessory then
-		Selection:Set({ accessory })
-	end
-elseif string.sub(name, 1, 5) == "prop_" then
-	fixProp(model)
-else
-	say("Unknown model name " .. name .. ". Rename it exactly as in the contract (starter, ashkenazi_T2, congregant_1, kippah, tallit, prop_tree...)")
+	say("Done with " .. name .. ". Right click it, Save to File, save as src/models/core/" .. name .. ".rbxm")
 end
-
+Selection:Set(results)
 if recording then
 	ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
 end
-say("Done. Right click the result, Save to File, and save it as src/models/core/" .. name .. ".rbxm")

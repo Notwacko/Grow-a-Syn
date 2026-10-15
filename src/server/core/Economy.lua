@@ -6,13 +6,20 @@ local Workspace = game:GetService("Workspace")
 local Link = require(script.Parent.Link)
 local Config = require(script.Parent.Config)
 local Guard = require(script.Parent.Guard)
+local Income = require(script.Parent.Income)
+local Signal = require(script.Parent.Signal)
+local IncomeService = require(script.Parent.IncomeService)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local Economy = {}
 
+Economy.Earned = Signal.new()
+Economy.Spent = Signal.new()
+
 local active = {}
 local pendingGrants = {}
 local tickStarted = false
+local bonusProvider = nil
 
 local function round2(value)
 	return math.floor(value * 100 + 0.5) / 100
@@ -65,6 +72,9 @@ function Economy.spend(player, amount, reason)
 		return false
 	end
 	player:SetAttribute("Money", clampMoney(money - amount))
+	if amount > 0 then
+		Economy.Spent:Fire(player, amount, reason)
+	end
 	return true
 end
 
@@ -81,6 +91,9 @@ function Economy.grant(player, amount, reason)
 		return true
 	end
 	player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + amount))
+	if amount > 0 then
+		Economy.Earned:Fire(player, amount, reason)
+	end
 	return true
 end
 
@@ -91,6 +104,7 @@ function Economy.setActive(player, value)
 		pendingGrants[player] = nil
 		if pending and pending > 0 then
 			player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + pending))
+			Economy.Earned:Fire(player, pending, "pending")
 		end
 	end
 end
@@ -98,6 +112,14 @@ end
 function Economy.release(player)
 	active[player] = nil
 	pendingGrants[player] = nil
+end
+
+function Economy.setMoney(player, amount)
+	if not Guard.isPlayer(player) or not Guard.isNumber(amount) then
+		return false
+	end
+	player:SetAttribute("Money", clampMoney(amount))
+	return true
 end
 
 function Economy.setEventMult(value)
@@ -112,22 +134,44 @@ function Economy.getEventMult()
 	return readNumber(Workspace:GetAttribute("EventMult"), 1)
 end
 
+function Economy.setBonusProvider(provider)
+	bonusProvider = provider
+end
+
+function Economy.bonusPerSecond(player)
+	if not bonusProvider then
+		return 0
+	end
+	local ok, value = pcall(bonusProvider, player)
+	if ok and Guard.isNumber(value) then
+		return math.clamp(value, 0, 1e12)
+	end
+	return 0
+end
+
 function Economy.incomePerSecond(player)
+	local base = Income.perSecond(
+		player:GetAttribute("HasMinyan") == true,
+		readNumber(player:GetAttribute("Congregation"), 0),
+		readNumber(player:GetAttribute("IncomeMult"), 1),
+		readNumber(player:GetAttribute("BoostMult"), 1),
+		Economy.getEventMult()
+	)
 	if player:GetAttribute("HasMinyan") ~= true then
 		return 0
 	end
-	local congregation = readNumber(player:GetAttribute("Congregation"), 0)
-	local incomeMult = readNumber(player:GetAttribute("IncomeMult"), 1)
-	local boostMult = readNumber(player:GetAttribute("BoostMult"), 1)
-	local eventMult = Economy.getEventMult()
-	return math.clamp(congregation * incomeMult * boostMult * eventMult, 0, 1e12)
+	return math.clamp(base + Economy.bonusPerSecond(player), 0, 1e12)
 end
 
 local function tickPlayer(player, dt)
+	IncomeService.refresh(player)
 	local perSecond = Economy.incomePerSecond(player)
 	setAttribute(player, "MoneyPerSecond", round2(perSecond))
+	setAttribute(player, "BonusPerSecond", round2(Economy.bonusPerSecond(player)))
 	if perSecond > 0 then
-		player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + perSecond * dt))
+		local gained = perSecond * dt
+		player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + gained))
+		Economy.Earned:Fire(player, gained, "income")
 	end
 end
 

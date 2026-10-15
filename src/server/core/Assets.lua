@@ -4,17 +4,29 @@ local Assets = {}
 
 local PLACEHOLDER_PREFIX = "Placeholder_"
 
+local templates = {}
+local missing = {}
+
 function Assets.isPlaceholder(instance)
 	return instance:IsA("BasePart") and string.sub(instance.Name, 1, #PLACEHOLDER_PREFIX) == PLACEHOLDER_PREFIX
 end
 
 function Assets.get(name)
-	local instance = ModelLookup.get(name)
-	if Assets.isPlaceholder(instance) then
-		instance:Destroy()
+	if missing[name] then
 		return nil
 	end
-	return instance
+	local template = templates[name]
+	if not template then
+		local instance = ModelLookup.get(name)
+		if Assets.isPlaceholder(instance) then
+			instance:Destroy()
+			missing[name] = true
+			return nil
+		end
+		templates[name] = instance
+		template = instance
+	end
+	return template:Clone()
 end
 
 function Assets.groundPivot(model)

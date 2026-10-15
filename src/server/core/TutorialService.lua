@@ -37,8 +37,28 @@ local function celebrateMinyan(player)
 		Fx.confetti(center, 2)
 		Fx.ring(Vector3.new(center.X, info.floorTopY + 0.5, center.Z), Color3.fromRGB(255, 214, 80), 50)
 		Fx.floatText(center + Vector3.new(0, 10, 0), "MINYAN!", Color3.fromRGB(255, 214, 80))
+		Fx.sound(center, Config.SOUNDS.victory, 0.8, 1)
+		local front = Vector3.new(info.door.Position.X, 1, info.door.Position.Z) + info.floor.CFrame.LookVector * 30
+		Fx.fireworkShow(front, 8, 48)
 	end
 	Notify.send(player, "success", "You have a minyan! Ten people are praying together")
+end
+
+local function skipBuyIfOffline(player, state)
+	if state.buyScheduled or workspace:GetAttribute("ProgressionOnline") == true then
+		return
+	end
+	state.buyScheduled = true
+	task.delay(Config.TUTORIAL_BUY_FALLBACK_DELAY, function()
+		if states[player] ~= state or currentStep(player) ~= STEP.BUY then
+			return
+		end
+		if workspace:GetAttribute("ProgressionOnline") == true then
+			return
+		end
+		Notify.send(player, "info", "The shop is still being stocked. Keep welcoming your congregation!")
+		setStep(player, STEP.MINYAN)
+	end)
 end
 
 local function evaluate(player)
@@ -49,7 +69,13 @@ local function evaluate(player)
 	for _ = 1, 8 do
 		local step = currentStep(player)
 		local before = step
-		if step == STEP.CLAIM_PLOT then
+		if step == STEP.WELCOME then
+			if (player:GetAttribute("PlotId") or 0) > 0 then
+				setStep(player, STEP.CLAIM_PLOT)
+			end
+		elseif step == STEP.BUY then
+			skipBuyIfOffline(player, state)
+		elseif step == STEP.CLAIM_PLOT then
 			if (player:GetAttribute("PlotId") or 0) > 0 then
 				setStep(player, STEP.GREET)
 			end

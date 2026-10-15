@@ -1,3 +1,7 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Balance = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Balance"))
+
 local Config = {}
 
 Config.GROUND_Y = 0
@@ -26,7 +30,7 @@ Config.LAND_BOUNDS = {
 	[6] = { x1 = -80, x2 = 80, z1 = 0, z2 = 240 },
 }
 
-Config.LAND_COSTS = { 750, 4000, 20000, 100000, 500000 }
+Config.LAND_COSTS = Balance.LAND_COSTS
 
 Config.CLAIM_PAD_LOCAL = Vector3.new(0, 0, 9)
 Config.NPC_SPAWN_LOCAL = Vector3.new(-20, 0, 3)
@@ -46,24 +50,53 @@ Config.ARRIVAL_MIN_INTERVAL = 1.5
 Config.ARRIVAL_MAX_INTERVAL = 10
 Config.ARRIVAL_JITTER = 0.2
 Config.TUTORIAL_ARRIVAL_INTERVAL = 3
+Config.TUTORIAL_BUY_FALLBACK_DELAY = 75
 
 Config.WALK_SPEED = 13
-Config.TOTAL_CONGREGANT_CAP = 320
+Config.WALK_SPEED_RANGE = { 0.85, 1.2 }
+Config.MOVE_STEP = 1 / 30
+Config.MAX_FX_PARTS = 120
+Config.TOTAL_CONGREGANT_CAP = 200
 Config.MIN_VISIBLE_PER_PLOT = 12
 Config.RECONCILE_INTERVAL = 1
 Config.RECONCILE_SPAWN_PER_TICK = 4
 
+Config.CONGREGANT_SHADOWS = false
 Config.CONGREGANT_HEIGHT = 5.5
 Config.CONGREGANT_HIP = 2.6
 Config.CONGREGANT_VARIANTS = 6
 
 Config.EVENT_MULT_MAX = 100
+Config.EVENT_FIRST_DELAY = 240
+Config.EVENT_INTERVAL = 900
+Config.EVENT_DURATION = 180
+
+Config.SOUNDS = {
+	ping = "rbxasset://sounds/electronicpingshort.wav",
+	victory = "rbxasset://sounds/victory.wav",
+	launch = "rbxasset://sounds/Launching rocket.wav",
+	pop = "rbxasset://sounds/snap.mp3",
+	coin = "rbxasset://sounds/kerplunk.wav",
+	click = "rbxasset://sounds/button.wav",
+}
+
+Config.TIER_COLORS = {
+	Color3.fromRGB(255, 226, 150),
+	Color3.fromRGB(110, 190, 255),
+	Color3.fromRGB(94, 226, 150),
+	Color3.fromRGB(255, 190, 80),
+	Color3.fromRGB(255, 120, 150),
+	Color3.fromRGB(190, 140, 255),
+	Color3.fromRGB(255, 214, 80),
+}
 
 Config.COOLDOWNS = {
 	ClaimPlot = 1,
 	ExpandLand = 1.5,
 	AdvanceTutorial = 1,
 	Greet = 0.25,
+	Upgrade = 0.6,
+	Cosmetics = 0.4,
 }
 
 Config.CLOTH_TOP_COLORS = {
@@ -77,6 +110,28 @@ Config.CLOTH_TOP_COLORS = {
 	Color3.fromRGB(64, 196, 196),
 }
 
+Config.KIPPAH_COLORS = {
+	Color3.fromRGB(28, 28, 36),
+	Color3.fromRGB(47, 62, 102),
+	Color3.fromRGB(255, 255, 255),
+	Color3.fromRGB(74, 123, 208),
+	Color3.fromRGB(76, 163, 107),
+	Color3.fromRGB(150, 50, 60),
+	Color3.fromRGB(235, 190, 70),
+	Color3.fromRGB(130, 90, 190),
+}
+
+Config.HAIR_COLORS = {
+	Color3.fromRGB(30, 22, 18),
+	Color3.fromRGB(60, 40, 30),
+	Color3.fromRGB(110, 70, 40),
+	Color3.fromRGB(160, 100, 50),
+	Color3.fromRGB(205, 160, 90),
+	Color3.fromRGB(170, 70, 40),
+}
+
+Config.VARIANT_WEIGHTS = { 1, 1, 1, 1, 1, 0.55 }
+
 Config.CLOTH_BOTTOM_COLORS = {
 	Color3.fromRGB(38, 44, 66),
 	Color3.fromRGB(58, 58, 64),
@@ -86,7 +141,7 @@ Config.CLOTH_BOTTOM_COLORS = {
 }
 
 Config.COLORS = {
-	grass = Color3.fromRGB(98, 214, 64),
+	grass = Color3.fromRGB(82, 184, 66),
 	grassLight = Color3.fromRGB(128, 232, 84),
 	plot = Color3.fromRGB(116, 226, 74),
 	plaza = Color3.fromRGB(236, 226, 196),

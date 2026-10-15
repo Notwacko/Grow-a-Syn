@@ -1,0 +1,239 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local Link = require(script.Parent.Link)
+local Guard = require(script.Parent.Guard)
+local Notify = require(script.Parent.Notify)
+local Economy = require(script.Parent.Economy)
+local ItemService = require(script.Parent.ItemService)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Constants = require(Shared:WaitForChild("Constants"))
+local ItemCatalog = require(Shared:WaitForChild("ItemCatalog"))
+local Balance = require(Shared:WaitForChild("Balance"))
+local IncomeService = require(script.Parent.IncomeService)
+local Signal = require(script.Parent.Signal)
+
+local ProgressionFallback = {}
+
+local STAGES = {
+	"Ashkenazi Reform",
+	"Ashkenazi Conservative",
+	"Ashkenazi Orthodox",
+	"Ashkenazi Ultra Orthodox",
+	"Ashkenazi Hasidic",
+	"Ashkenazi Haredi",
+}
+
+local DENOMINATIONS = {
+	{
+		id = "ashkenazi",
+		name = "Ashkenazi",
+		blurb = "Warm, choir-filled services and a classic hall.",
+		model = "ashkenazi_T2",
+		stages = STAGES,
+	},
+}
+
+ProgressionFallback.TierChanged = Signal.new()
+
+local REMOTES = {
+	RF_GetCatalog = "RemoteFunction",
+	RF_GetInventory = "RemoteFunction",
+	RF_Buy = "RemoteFunction",
+	RF_Merge = "RemoteFunction",
+	RF_Equip = "RemoteFunction",
+	RF_Unequip = "RemoteFunction",
+	RF_ChooseDenomination = "RemoteFunction",
+	RF_UpgradeBuilding = "RemoteFunction",
+	RE_InventoryChanged = "RemoteEvent",
+}
+
+local function active()
+	return Workspace:GetAttribute("ProgressionOnline") ~= true
+end
+
+local function known(id)
+	for _, den in DENOMINATIONS do
+		if den.id == id then
+			return true
+		end
+	end
+	return false
+end
+
+local function tierOf(player)
+	return math.clamp(math.floor(tonumber(player:GetAttribute("Tier")) or 1), 1, Constants.MAX_TIER)
+end
+
+local function fail(reason)
+	return { ok = false, reason = reason }
+end
+
+local function catalog(player)
+	local rarityOdds, mutationOdds = ItemCatalog.oddsTable()
+	local upgrades = {}
+	for tier = 2, Constants.MAX_TIER do
+		upgrades[tier] = { cost = Balance.tierCost(tier), requirement = "Needs land tier " .. (tier - 1) }
+	end
+	return {
+		items = ItemService.catalogItems(player),
+		buildings = {},
+		packs = {},
+		boosts = {},
+		denominations = DENOMINATIONS,
+		upgrades = upgrades,
+		rarityColors = ItemCatalog.rarityColors(),
+		restockAt = ItemService.restockAt(player),
+		restockSeconds = player:GetAttribute("ShopRestockSeconds") or ItemCatalog.RESTOCK_SECONDS,
+		odds = { rarities = rarityOdds, mutations = mutationOdds },
+		starterShelf = ItemCatalog.STARTER_SHELF.id,
+		pity = ItemCatalog.PITY,
+		shopSlots = ItemCatalog.SHOP_SLOTS,
+	}
+end
+
+local function refreshIncome(player)
+	IncomeService.refresh(player)
+end
+
+local function setTier(player, tier)
+	player:SetAttribute("Tier", tier)
+	refreshIncome(player)
+	ProgressionFallback.TierChanged:Fire(player, tier)
+end
+
+local function chooseDenomination(player, id)
+	if not active() then
+		return fail("busy")
+	end
+	if not Guard.isPlayer(player) or not Guard.isString(id, 32) or not known(id) then
+		return fail("invalid")
+	end
+	if not Guard.allow(player, "Progression", 0.5) then
+		return fail("busy")
+	end
+	local current = player:GetAttribute("Denomination")
+	if type(current) == "string" and current ~= "" then
+		return fail("locked")
+	end
+	if player:GetAttribute("HasMinyan") ~= true then
+		return fail("requirements_not_met")
+	end
+	player:SetAttribute("Denomination", id)
+	setTier(player, 2)
+	Notify.send(player, "success", "Welcome to the " .. STAGES[1] .. " stage!")
+	return { ok = true }
+end
+
+local function upgradeBuilding(player)
+	if not active() then
+		return fail("busy")
+	end
+	if not Guard.isPlayer(player) then
+		return fail("invalid")
+	end
+	if not Guard.allow(player, "Progression", 0.5) then
+		return fail("busy")
+	end
+	local denomination = player:GetAttribute("Denomination")
+	if type(denomination) ~= "string" or denomination == "" then
+		return fail("requirements_not_met")
+	end
+	local tier = tierOf(player)
+	if tier >= Constants.MAX_TIER then
+		return fail("locked")
+	end
+	local target = tier + 1
+	if (player:GetAttribute("LandTier") or 1) < target - 1 then
+		Notify.send(player, "error", "Expand your land to tier " .. (target - 1) .. " first")
+		return fail("requirements_not_met")
+	end
+	local cost = Balance.tierCost(target)
+	if not Economy.spend(player, cost, "upgrade_tier_" .. target) then
+		return fail("not_enough_money")
+	end
+	setTier(player, target)
+	Notify.send(player, "success", "Your synagogue grew into " .. STAGES[target - 1] .. "!")
+	return { ok = true }
+end
+
+function ProgressionFallback.resetTier(player)
+	if not active() then
+		return
+	end
+	setTier(player, 1)
+end
+
+function ProgressionFallback.serialize(player)
+	local denomination = player:GetAttribute("Denomination")
+	if type(denomination) ~= "string" or not known(denomination) then
+		denomination = ""
+	end
+	return { denomination = denomination, tier = tierOf(player), items = ItemService.serialize(player) }
+end
+
+function ProgressionFallback.applySaved(player, saved)
+	if not active() then
+		return
+	end
+	ItemService.init(player, type(saved) == "table" and saved.items or nil)
+	if type(saved) == "table" and type(saved.denomination) == "string" and known(saved.denomination) then
+		player:SetAttribute("Denomination", saved.denomination)
+		setTier(player, math.clamp(math.floor(tonumber(saved.tier) or 2), 2, Constants.MAX_TIER))
+	else
+		player:SetAttribute("Denomination", "")
+		setTier(player, 1)
+	end
+end
+
+function ProgressionFallback.start()
+	local folder = Link.folder(ReplicatedStorage, "Remotes")
+	local created = {}
+	for name, className in REMOTES do
+		if not folder:FindFirstChild(name) then
+			local remote = Link.get(ReplicatedStorage, "Remotes", name, className)
+			remote:SetAttribute("CoreFallback", true)
+			created[name] = remote
+		end
+	end
+	local function bind(name, callback)
+		local remote = created[name]
+		if remote and remote:IsA("RemoteFunction") then
+			remote.OnServerInvoke = callback
+		end
+	end
+	bind("RF_GetCatalog", catalog)
+	bind("RF_GetInventory", function(player)
+		return ItemService.clientInventory(player)
+	end)
+	bind("RF_Buy", function(player, offerId)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.buy(player, offerId)
+	end)
+	bind("RF_Merge", function(player, ...)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.merge(player, ...)
+	end)
+	bind("RF_Equip", function(player, uid, slotName)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.equip(player, uid, slotName)
+	end)
+	bind("RF_Unequip", function(player, uid)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.unequip(player, uid)
+	end)
+	ItemService.Changed:Connect(refreshIncome)
+	ItemService.Grew:Connect(refreshIncome)
+	bind("RF_ChooseDenomination", chooseDenomination)
+	bind("RF_UpgradeBuilding", upgradeBuilding)
+end
+
+return ProgressionFallback

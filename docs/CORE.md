@@ -1,0 +1,58 @@
+# Core (role A) integration notes
+
+Everything here is what core actually does at runtime. The frozen contract is unchanged; additions are marked (extra).
+
+## Startup order
+`CoreMain.server.lua` builds lighting and the world, builds or adopts `workspace.Plots`, binds the Bridge and remotes, then sets `workspace.CoreOnline = true` last. If `workspace.Plots` already has Plot1 to Plot8 models, core uses them and only fills in missing parts.
+
+## Player attributes
+- Core writes: Money, MoneyPerSecond, Congregation, MaxCongregation, PlotId, LandTier, TutorialStep, HasMinyan.
+- Core only reads: Denomination, Tier, IncomeMult, WelcomeBonus, BoostMult. Missing values use the 4.3 defaults. Core never writes them.
+- (extra) `DataLoaded` boolean on the player, true once the core DataStore load succeeded.
+- Congregation counts people who are seated (a congregant counts when they sit). At high seat counts only some have a visible model, the rest are "virtual" but still count for income.
+- Before the minyan, arrivals come every 3 seconds and are capped at 9 people until tutorial step 4.
+
+## Plots and buildings
+- `Plot.Building` is a container Model. The synagogue is placed inside it as a child Model named after the model (`starter`, `ashkenazi_T3`, ...). Find parts with recursive searches, for example `plot.Building:FindFirstChild("Slots", true)`.
+- The building model always has PrimaryPart `Floor`, a `Door`, a `Seats` folder and a `Slots` folder with all 26 slot names. Missing slots are created at default positions, so Slot lookups never fail.
+- `BuildingVersion` on the plot is incremented after the new model is parented and `MaxCongregation` is set. Re-place items when it changes.
+- Core orients every building so its Door faces the plaza, whatever the imported axis was.
+- Land extensions live in `Plot.Expansion` and the fence in `Plot.Fence`. Decor inside a new building's footprint is removed automatically.
+- The ClaimPad prompt claims a free plot, and for the owner it becomes the Expand Land prompt (same server path as `RE_ExpandLand`).
+
+## For the client (role C)
+- Congregant models carry the CollectionService tag `Congregant` and the attribute `OwnerUserId`. They are anchored Models with a `Root` part.
+- `workspace` attributes `CongregantModels` and `CongregantsSeated` report the live counts.
+- `RE_Notify` texts are short fixed strings. Core only sends info, success or error.
+- Tutorial greeters have a ProximityPrompt (action text "Greet"). Land and claim use the ClaimPad prompt.
+
+## For progression (role B)
+- Fire `ServerStorage.Bridge.Purchased` as `(player, offerId)`. Any offerId type is accepted, tutorial step 3 advances on the first one.
+- `SpendMoney` only works after the player's data loaded and returns false before that. Check `workspace.CoreOnline` first, as the contract says.
+- `Economy.setEventMult(n)` is the Shabbat hook. It sets `workspace.EventMult`, which is read live every income tick.
+
+## Tuning
+All numbers are in `src/server/core/Config.lua` (land costs, arrival timing, congregant cap, palettes). Income and arrival math is in the pure module `Income.lua`.
+
+## Dev tools
+- `src/server/core/dev/ContractCheck.server.lua` runs in Studio 12 seconds after start and prints PASS, FAIL or MISSING for remotes, Bridge, plots, attributes and every model.
+- `tools/StudioImportFixer.lua` is pasted into the Studio command bar with one or more imported models selected. It colors parts from their names, makes glass transparent, builds the Seats and Slots folders, sets the PrimaryPart, scales buildings so the Door is 9 studs tall and builds the kippah and tallit Accessories.
+- `tools/tests/core_test.luau` runs with the `luau` CLI: `cd tools/tests && luau core_test.luau`.
+
+## Items and the shop
+Role B's catalog and inventory are not here yet, so core serves them (see `docs/MODULES.md`, "Item shop"). The catalog shape follows what role C's client reads: `items` with `id, name, category, rarity, price, model, mergesTo, stock, bonus, grow`, plus `rarityColors` and `restockAt`. The inventory is `{ items = { {uid, id, slot, growth, mutation} } }`. When role B is online they only need to replace the `OnServerInvoke` handlers. Item models are named after the category (`torah`, `ark`, `siddur`, `menorah`, `kiddush_cup`, `chandelier`, `ornament`, `holiday_decor`) and have an `Accent` part that the rarity skin recolors. Their pivot is the bottom center (the chandelier and the holiday banner hang from the top, the ornament is centered).
+
+## Model pipeline
+Blender at 1 unit = 1 stud, FBX to `art/exports/` (not committed), Import 3D in Studio, run the fixer, right click and Save to File as `src/models/core/<name>.rbxm`, commit the `.rbxm`.
+
+## Getting the code into Studio without Rojo
+`tools/studio_sync/serve.sh` copies only `src/` to a temp folder (never `.git`) and serves it on 127.0.0.1:8765. `tools/studio_sync/sync.lua` is run through the Studio MCP `execute_luau` (Edit mode). It fetches the file list, then creates or updates every script with Rojo's layout (`src/shared` to `ReplicatedStorage.Shared`, `src/server` to `ServerScriptService.Server`, `src/models` to `ReplicatedStorage.Models`) and puts `HttpService.HttpEnabled` back to its old value. Re-run both after any repo change. The repo stays the source of truth. Save the place afterwards (Ctrl+S) so the scripts persist in the file.
+
+Note for tests: `execute_luau` runs in its own script context, so `require` of a core module there creates a separate copy. Drive the game through remotes, attributes and prompts instead (client `RE_*` remotes, the E key through `user_keyboard_input`).
+
+## Studio importer scale (learned the hard way)
+Studio's Import 3D reads these FBX files in centimeters, so people, props and accessories arrive 100 times too big, and anything over 2048 studs (all the buildings) is clamped to 2048 by a different factor per file. Buildings are therefore fixed per model with `9 / Door size` (every Door marker is 6 x 1 x 9), and everything else is multiplied by 0.01. Both are in `tools/studio_sync/fix_imported.lua`, which also colors parts from their names, builds the Seats and Slots folders, makes the accessories and files the results in `ReplicatedStorage.Models.core`.
+
+Imported models keep a baked model scale, so always scale them with `model:ScaleTo(model:GetScale() * k)`. Calling `ScaleTo(k)` alone resets them to the raw 100 times size.
+
+`tools/studio_sync/receive.py` plus `SerializationService` was used to export the fixed models back to `src/models/core/*.rbxm`. Items use `tools/studio_sync/fix_items.lua` (the pivot rules differ) and the starter building is scaled by 1.2 in `fix_imported.lua`. The Blender sources for items, people and icons are in `tools/blender/src/` (they run through the Blender MCP, `kit2.py` is the shared builder).

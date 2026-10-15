@@ -95,13 +95,8 @@ function Procedural.lamp()
 	local model = newModel("prop_lamp")
 	place(model, "Base", Vector3.new(2, 0.8, 2), CFrame.new(0, 0.4, 0), Config.COLORS.dark)
 	place(model, "Pole", Vector3.new(0.7, 9, 0.7), CFrame.new(0, 4.8, 0), Config.COLORS.dark)
-	local bulb = place(model, "Glow", Vector3.new(2.2, 2.2, 2.2), CFrame.new(0, 10.2, 0), rgb(255, 233, 160), Enum.Material.Neon)
+	place(model, "Glow", Vector3.new(2.2, 2.2, 2.2), CFrame.new(0, 10.2, 0), rgb(255, 233, 160), Enum.Material.Neon)
 	place(model, "Cap", Vector3.new(3, 0.6, 3), CFrame.new(0, 11.6, 0), Config.COLORS.dark)
-	local light = Instance.new("PointLight")
-	light.Range = 24
-	light.Brightness = 1.4
-	light.Color = rgb(255, 226, 150)
-	light.Parent = bulb
 	model.WorldPivot = CFrame.new()
 	return model, 4
 end
@@ -216,8 +211,8 @@ function Procedural.congregant(variant)
 		place(model, "Cloth_Bottom", Vector3.new(2.3, 2.2, 1.5), CFrame.new(0, 1.5, 0), spec.bottom)
 		place(model, "Legs", Vector3.new(1.6, 0.6, 0.9), CFrame.new(0, 0.5, 0), spec.skin)
 	else
-		place(model, "Cloth_Bottom", Vector3.new(0.95, 2.3, 1), CFrame.new(-0.52, 1.35, 0), spec.bottom)
-		place(model, "Cloth_Bottom", Vector3.new(0.95, 2.3, 1), CFrame.new(0.52, 1.35, 0), spec.bottom)
+		place(model, "Cloth_Bottom", Vector3.new(0.95, 2.5, 1), CFrame.new(-0.52, 1.45, 0), spec.bottom)
+		place(model, "Cloth_Bottom", Vector3.new(0.95, 2.5, 1), CFrame.new(0.52, 1.45, 0), spec.bottom)
 	end
 	place(model, "Shoes", Vector3.new(0.95, 0.4, 1.3), CFrame.new(-0.52, 0.2, -0.15), rgb(50, 40, 40))
 	place(model, "Shoes", Vector3.new(0.95, 0.4, 1.3), CFrame.new(0.52, 0.2, -0.15), rgb(50, 40, 40))
@@ -234,7 +229,7 @@ function Procedural.congregant(variant)
 	face.Parent = head
 	place(model, "Hair", Vector3.new(1.62, 0.5, 1.62), CFrame.new(0, 5.4, 0.05), spec.hair)
 	if spec.female then
-		place(model, "Hair", Vector3.new(1.62, 1.6, 0.45), CFrame.new(0, 4.75, 0.72), spec.hair)
+		place(model, "Hair", Vector3.new(1.68, 1.6, 0.45), CFrame.new(0, 4.75, 0.72), spec.hair)
 	end
 	if spec.kippah then
 		cylinder(model, "Kippah", 1.05, 0.3, CFrame.new(0, 5.62, 0), spec.kippah)
@@ -246,9 +241,9 @@ function Procedural.congregant(variant)
 		place(model, "Tallit", Vector3.new(2.5, 0.35, 1.5), CFrame.new(0, 4.2, 0), rgb(255, 255, 255))
 		place(model, "Tallit", Vector3.new(0.7, 1.7, 0.18), CFrame.new(-0.55, 3.4, -0.7), rgb(255, 255, 255))
 		place(model, "Tallit", Vector3.new(0.7, 1.7, 0.18), CFrame.new(0.55, 3.4, -0.7), rgb(255, 255, 255))
-		place(model, "TallitStripe", Vector3.new(2.52, 0.12, 1.52), CFrame.new(0, 4.24, 0), rgb(47, 111, 224))
-		place(model, "TallitStripe", Vector3.new(0.72, 0.12, 0.2), CFrame.new(-0.55, 2.7, -0.7), rgb(47, 111, 224))
-		place(model, "TallitStripe", Vector3.new(0.72, 0.12, 0.2), CFrame.new(0.55, 2.7, -0.7), rgb(47, 111, 224))
+		place(model, "TallitStripe", Vector3.new(2.54, 0.1, 1.54), CFrame.new(0, 4.4, 0), rgb(47, 111, 224))
+		place(model, "TallitStripe", Vector3.new(0.74, 0.12, 0.26), CFrame.new(-0.55, 2.7, -0.7), rgb(47, 111, 224))
+		place(model, "TallitStripe", Vector3.new(0.74, 0.12, 0.26), CFrame.new(0.55, 2.7, -0.7), rgb(47, 111, 224))
 	end
 	model:SetAttribute("BaseScale", spec.scale)
 	model:SetAttribute("Procedural", true)
@@ -394,7 +389,7 @@ function Procedural.building(tier)
 		local z = benchStart + (row - 1) * ROW_SPACING
 		for _, side in { -1, 1 } do
 			local x = side * (aisle / 2 + 0.8 + length / 2)
-			place(visual, "BenchBase", Vector3.new(length, 1.3, 1.5), CFrame.new(x, top + 0.65 + 0.2, z), Config.COLORS.woodDark)
+			place(visual, "BenchBase", Vector3.new(length, 1.75, 1.5), CFrame.new(x, top + 0.875, z), Config.COLORS.woodDark)
 			place(visual, "BenchSeat", Vector3.new(length, 0.5, 2), CFrame.new(x, top + 1.5 + 0.5, z), Config.COLORS.wood)
 			place(visual, "BenchBack", Vector3.new(length, 2, 0.4), CFrame.new(x, top + 3, z - 1), Config.COLORS.woodDark)
 			for k = 0, perBench - 1 do
@@ -454,20 +449,21 @@ function Procedural.building(tier)
 		place(visual, "PorticoRoof", Vector3.new(shellW - 1, 1, 4), CFrame.new(0, top + wallH - 0.1, zf - 2), style.roof)
 	end
 	if tier >= 3 then
-		addTower(visual, style, -(shellW / 2 + 1), zf + 3, top, wallH + 4 + tier, 6)
+		addTower(visual, style, -(shellW / 2 + 1), zf + 2.9, top, wallH + 4 + tier, 6)
 	end
 	if tier >= 5 then
-		addTower(visual, style, shellW / 2 + 1, zf + 3, top, wallH + 4 + tier, 6)
+		addTower(visual, style, shellW / 2 + 1, zf + 2.9, top, wallH + 4 + tier, 6)
 	end
 	if tier >= 7 then
-		addTower(visual, style, -(shellW / 2 + 1), zb - 3, top, wallH + 8, 6)
-		addTower(visual, style, shellW / 2 + 1, zb - 3, top, wallH + 8, 6)
+		addTower(visual, style, -(shellW / 2 + 1), zb - 2.9, top, wallH + 8, 6)
+		addTower(visual, style, shellW / 2 + 1, zb - 2.9, top, wallH + 8, 6)
 	end
 	if tier >= 4 then
 		local dome = math.min(shellW * (0.3 + 0.05 * (tier - 4)), 26)
-		cylinder(visual, "DomeDrum", dome * 0.8, 3, CFrame.new(0, roofTop + 1.5, (zf + zb) / 2), style.wall)
-		ball(visual, "Dome", dome, CFrame.new(0, roofTop + 3 + dome * 0.18, (zf + zb) / 2), style.trim, Enum.Material.Neon)
-		ball(visual, "DomeFinial", 1.4, CFrame.new(0, roofTop + 3 + dome * 0.6, (zf + zb) / 2), rgb(255, 255, 255), Enum.Material.Neon)
+		local drumHeight = 4
+		cylinder(visual, "DomeDrum", dome, drumHeight, CFrame.new(0, roofTop + drumHeight / 2, (zf + zb) / 2), style.wall)
+		ball(visual, "Dome", dome, CFrame.new(0, roofTop + drumHeight, (zf + zb) / 2), style.trim, Enum.Material.Metal)
+		ball(visual, "DomeFinial", 1.4, CFrame.new(0, roofTop + drumHeight + dome / 2 + 0.4, (zf + zb) / 2), rgb(255, 255, 255), Enum.Material.Neon)
 	end
 	if tier >= 6 then
 		for _, side in { -1, 1 } do

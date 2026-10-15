@@ -1,10 +1,14 @@
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(script.Parent.Config)
 local Guard = require(script.Parent.Guard)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+local UpgradeCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
+local OutfitCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("OutfitCatalog"))
+local ItemCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("ItemCatalog"))
 
 local DataService = {}
 
@@ -13,7 +17,12 @@ local SCHEMA_VERSION = 1
 
 local states = {}
 local congregationProvider = nil
+local upgradeProvider = nil
+local cosmeticsProvider = nil
+local progressProvider = nil
 local warnedOffline = false
+local sectionDefs = {}
+local sectionOrder = {}
 
 local function storeKey(player)
 	return "Player_" .. player.UserId
@@ -25,7 +34,50 @@ local function defaultData()
 		landTier = 1,
 		tutorialStep = 0,
 		congregation = 0,
+		upgrades = {},
+		cosmetics = { outfit = OutfitCatalog.AUTO, style = "classic" },
+		progress = { denomination = "", tier = 1, items = {} },
+		sections = {},
 	}
+end
+
+local function cleanProgress(raw)
+	local result = { denomination = "", tier = 1, items = {} }
+	if type(raw) == "table" then
+		result.items = ItemCatalog.cleanSaved(raw.items)
+		if raw.denomination == "ashkenazi" then
+			result.denomination = raw.denomination
+		end
+		if Guard.isInteger(raw.tier, 1, Constants.MAX_TIER) then
+			result.tier = raw.tier
+		end
+	end
+	return result
+end
+
+local function cleanCosmetics(raw)
+	local result = { outfit = OutfitCatalog.AUTO, style = "classic" }
+	if type(raw) == "table" then
+		if OutfitCatalog.validSelection(raw.outfit) then
+			result.outfit = raw.outfit
+		end
+		if OutfitCatalog.validStyle(raw.style) then
+			result.style = raw.style
+		end
+	end
+	return result
+end
+
+local function cleanUpgrades(raw)
+	local result = {}
+	for _, definition in UpgradeCatalog.list do
+		local value = type(raw) == "table" and raw[definition.id] or 0
+		if not Guard.isInteger(value, 0, definition.maxLevel) then
+			value = 0
+		end
+		result[definition.id] = value
+	end
+	return result
 end
 
 local function sanitize(raw)
@@ -48,15 +100,75 @@ local function sanitize(raw)
 	if data.tutorialStep < Constants.TUTORIAL.BUY then
 		data.congregation = 0
 	end
+	data.upgrades = cleanUpgrades(raw.upgrades)
+	data.cosmetics = cleanCosmetics(raw.cosmetics)
+	data.progress = cleanProgress(raw.progress)
+	if type(raw.sections) == "table" then
+		data.sections = raw.sections
+	end
 	return data
 end
 
+local function itemsSignature(items)
+	local parts = {}
+	for _, entry in items or {} do
+		table.insert(parts, string.format("%s:%s:%s:%s:%d:%d", entry.uid, tostring(entry.slot), tostring(entry.mut), tostring(entry.since), math.floor(entry.grown or 0), entry.star or 0))
+	end
+	return table.concat(parts, ",")
+end
+
+local function sectionsSignature(sections)
+	local ok, encoded = pcall(HttpService.JSONEncode, HttpService, sections or {})
+	if ok then
+		return encoded
+	end
+	return tostring(os.clock())
+end
+
 local function snapshotOf(data)
-	return string.format("%.2f|%d|%d|%d", data.money, data.landTier, data.tutorialStep, data.congregation)
+	local levels = {}
+	for _, definition in UpgradeCatalog.list do
+		table.insert(levels, tostring(data.upgrades and data.upgrades[definition.id] or 0))
+	end
+	local cosmetics = data.cosmetics or {}
+	local progress = data.progress or {}
+	return string.format("%.2f|%d|%d|%d|%s|%s|%s|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style), tostring(progress.denomination), tostring(progress.tier), itemsSignature(progress.items)) .. "|" .. sectionsSignature(data.sections)
 end
 
 function DataService.setCongregationProvider(provider)
 	congregationProvider = provider
+end
+
+function DataService.setUpgradeProvider(provider)
+	upgradeProvider = provider
+end
+
+function DataService.setCosmeticsProvider(provider)
+	cosmeticsProvider = provider
+end
+
+function DataService.setProgressProvider(provider)
+	progressProvider = provider
+end
+
+function DataService.registerSection(name, definition)
+	if not sectionDefs[name] then
+		table.insert(sectionOrder, name)
+	end
+	sectionDefs[name] = definition
+end
+
+function DataService.applySections(player, data)
+	local saved = data and data.sections or {}
+	for _, name in sectionOrder do
+		local definition = sectionDefs[name]
+		if definition and definition.apply then
+			local ok, err = pcall(definition.apply, player, saved[name])
+			if not ok then
+				warn("[Data] section " .. name .. " apply failed: " .. tostring(err))
+			end
+		end
+	end
 end
 
 function DataService.collect(player)
@@ -72,6 +184,24 @@ function DataService.collect(player)
 		landTier = tonumber(player:GetAttribute("LandTier")) or 1,
 		tutorialStep = tonumber(player:GetAttribute("TutorialStep")) or 0,
 		congregation = math.floor(tonumber(congregation) or 0),
+		upgrades = cleanUpgrades(upgradeProvider and upgradeProvider(player) or nil),
+		cosmetics = cleanCosmetics(cosmeticsProvider and cosmeticsProvider(player) or nil),
+		progress = cleanProgress(progressProvider and progressProvider(player) or nil),
+		sections = (function()
+			local sections = {}
+			for _, name in sectionOrder do
+				local definition = sectionDefs[name]
+				if definition and definition.serialize then
+					local ok, value = pcall(definition.serialize, player)
+					if ok then
+						sections[name] = value
+					else
+						warn("[Data] section " .. name .. " serialize failed: " .. tostring(value))
+					end
+				end
+			end
+			return sections
+		end)(),
 	}
 end
 
@@ -140,6 +270,10 @@ function DataService.save(player, force)
 				merged.landTier = data.landTier
 				merged.tutorialStep = data.tutorialStep
 				merged.congregation = data.congregation
+				merged.upgrades = data.upgrades
+				merged.cosmetics = data.cosmetics
+				merged.progress = data.progress
+				merged.sections = data.sections
 				merged.savedAt = os.time()
 				return merged
 			end)

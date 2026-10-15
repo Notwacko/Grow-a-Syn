@@ -1,6 +1,8 @@
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Config = require(script.Parent.Config)
 local Assets = require(script.Parent.Assets)
@@ -8,7 +10,9 @@ local Guard = require(script.Parent.Guard)
 local Notify = require(script.Parent.Notify)
 local Economy = require(script.Parent.Economy)
 local Fx = require(script.Parent.Fx)
+local Income = require(script.Parent.Income)
 local Procedural = require(script.Parent.Procedural)
+local NpcAvatar = require(script.Parent.NpcAvatar)
 local BuildingService = require(script.Parent.BuildingService)
 local Signal = require(script.Parent.Signal)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
@@ -16,11 +20,14 @@ local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild(
 local CongregationService = {}
 
 CongregationService.Greeted = Signal.new()
+CongregationService.Arrived = Signal.new()
 
 local states = {}
 local walkers = {}
 local idlers = {}
 local rng = Random.new()
+local moveAccumulator = 0
+local providers = {}
 
 local GOLD = Color3.fromRGB(255, 214, 80)
 
@@ -50,7 +57,7 @@ local function prepareReal(model)
 	root.Anchored = true
 	model.PrimaryPart = root
 	local head = model:FindFirstChild("Head", true)
-	if head and head:IsA("BasePart") and not head:FindFirstChildOfClass("Decal") then
+	if head and head:IsA("BasePart") and not head:FindFirstChildOfClass("Decal") and not model:FindFirstChild("Eye", true) then
 		local face = Instance.new("Decal")
 		face.Name = "face"
 		face.Texture = "rbxasset://textures/face.png"
@@ -59,17 +66,69 @@ local function prepareReal(model)
 	end
 end
 
+local function pickVariant()
+	local total = 0
+	for _, weight in Config.VARIANT_WEIGHTS do
+		total += weight
+	end
+	local roll = rng:NextNumber() * total
+	for variant, weight in Config.VARIANT_WEIGHTS do
+		roll -= weight
+		if roll <= 0 then
+			return variant
+		end
+	end
+	return 1
+end
+
+local function luminance(color)
+	return 0.299 * color.R + 0.587 * color.G + 0.114 * color.B
+end
+
 local function tint(model)
 	local top = pick(Config.CLOTH_TOP_COLORS)
 	local bottom = pick(Config.CLOTH_BOTTOM_COLORS)
+	local kippah = pick(Config.KIPPAH_COLORS)
+	local recolorHair = rng:NextNumber() < 0.7
+	local hair = pick(Config.HAIR_COLORS)
+	local dropTallit = rng:NextNumber() < 0.3
+	local removable = {}
 	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") and string.sub(part.Name, 1, 5) == "Cloth" then
-			part.Color = string.find(part.Name, "Bottom") and bottom or top
+		if part:IsA("BasePart") then
+			local name = part.Name
+			if string.sub(name, 1, 5) == "Cloth" then
+				part.Color = string.find(name, "Bottom") and bottom or top
+			elseif string.sub(name, 1, 6) == "Kippah" then
+				part.Color = kippah
+			elseif string.sub(name, 1, 4) == "Hair" and recolorHair and luminance(part.Color) < 0.45 then
+				part.Color = hair
+			elseif string.sub(name, 1, 6) == "Tallit" and dropTallit then
+				table.insert(removable, part)
+			end
+		end
+	end
+	for _, part in removable do
+		part:Destroy()
+	end
+end
+
+local function shadeParts(model)
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.CastShadow = Config.CONGREGANT_SHADOWS
 		end
 	end
 end
 
-local function createModel(variant)
+local function createModel(variant, seed, tier)
+	if NpcAvatar.available then
+		local avatar, avatarHip, avatarYaw, avatarTop = NpcAvatar.create(tier, seed)
+		if avatar then
+			avatar:SetAttribute("Congregant", true)
+			avatar:SetAttribute("Avatar", true)
+			return avatar, avatarHip, avatarYaw, avatarTop
+		end
+	end
 	local source = Assets.get("congregant_" .. variant)
 	local model
 	if source then
@@ -87,30 +146,36 @@ local function createModel(variant)
 	model.Name = "Congregant"
 	model:SetAttribute("Congregant", true)
 	tint(model)
-	local scale = (model:GetAttribute("BaseScale") or 1) * rng:NextNumber(0.94, 1.06)
-	model:ScaleTo(scale)
+	shadeParts(model)
+	local scale = (model:GetAttribute("BaseScale") or 1) * rng:NextNumber(0.92, 1.08)
+	model:ScaleTo(model:GetScale() * scale)
 	local yaw = math.rad(model:GetAttribute("FaceYaw") or 0)
-	return model, Config.CONGREGANT_HIP * scale, yaw
+	return model, Config.CONGREGANT_HIP * scale, yaw, Config.CONGREGANT_HEIGHT * scale
 end
 
 local function newEntry(state)
 	state.nextId += 1
 	local entry = {
 		id = state.nextId,
-		variant = rng:NextInteger(1, Config.CONGREGANT_VARIANTS),
+		variant = pickVariant(),
+		seed = rng:NextInteger(1, 2147483000),
 		status = "new",
 		hip = Config.CONGREGANT_HIP,
 		yaw = 0,
+		speed = Config.WALK_SPEED * rng:NextNumber(Config.WALK_SPEED_RANGE[1], Config.WALK_SPEED_RANGE[2]),
+		seatYaw = math.rad(rng:NextNumber(-8, 8)),
 	}
 	state.entries[entry.id] = entry
 	return entry
 end
 
 local function attachModel(state, entry, variant)
-	local model, hip, yaw = createModel(variant or entry.variant)
+	local model, hip, yaw = createModel(variant or entry.variant, entry.seed, state.player:GetAttribute("Tier"))
 	entry.model = model
 	entry.hip = hip
 	entry.yaw = yaw
+	model:SetAttribute("OwnerUserId", state.player.UserId)
+	CollectionService:AddTag(model, "Congregant")
 	model.Parent = state.folder
 	state.models += 1
 	return model
@@ -181,7 +246,10 @@ end
 local function seatInstant(state, entry)
 	local info = state.info
 	if entry.model and entry.seatIndex and info.seats[entry.seatIndex] then
-		entry.model:PivotTo(faceCFrame(seatPosition(info, entry.seatIndex, entry.hip), info.forward, entry.yaw))
+		if entry.model:GetAttribute("Avatar") then
+			NpcAvatar.sit(entry.model)
+		end
+		entry.model:PivotTo(faceCFrame(seatPosition(info, entry.seatIndex, entry.hip), info.forward, entry.yaw) * CFrame.Angles(0, entry.seatYaw, 0))
 	end
 end
 
@@ -214,8 +282,31 @@ local function startWalk(state, entry)
 		points = points,
 		index = 2,
 		position = from,
+		speed = entry.speed,
 		direction = Vector3.new(0, 0, -1),
+		animated = entry.model:GetAttribute("Avatar") == true and NpcAvatar.walk(entry.model, entry.speed),
 	}
+end
+
+local function providerValue(name, player)
+	local provider = providers[name]
+	if not provider then
+		return 0
+	end
+	local ok, value = pcall(provider, player)
+	if ok and Guard.isNumber(value) then
+		return value
+	end
+	return 0
+end
+
+local function giveTip(state, position)
+	CongregationService.Arrived:Fire(state.player)
+	local tip = providerValue("tip", state.player)
+	if tip > 0 then
+		Economy.grant(state.player, tip, "tip")
+		Fx.floatText(position + Vector3.new(0, 5.5, 0), "+" .. tip, GOLD)
+	end
 end
 
 local function arrive(state, entry)
@@ -230,17 +321,28 @@ local function arrive(state, entry)
 	seatInstant(state, entry)
 	local seat = info.seats[entry.seatIndex].Position
 	Fx.sparkle(seat + Vector3.new(0, 2.5, 0))
+	giveTip(state, seat)
 	setCongregation(state)
 end
 
 local function stepWalkers(dt)
+	if next(walkers) == nil and next(idlers) == nil then
+		moveAccumulator = 0
+		return
+	end
+	moveAccumulator += dt
+	if moveAccumulator < Config.MOVE_STEP then
+		return
+	end
+	dt = moveAccumulator
+	moveAccumulator = 0
 	local now = os.clock()
 	for entry, walk in walkers do
 		local model = entry.model
 		if not model or not model.Parent then
 			walkers[entry] = nil
 		else
-			local remaining = Config.WALK_SPEED * dt
+			local remaining = walk.speed * dt
 			while remaining > 0 and walk.index <= #walk.points do
 				local target = walk.points[walk.index]
 				local delta = target - walk.position
@@ -260,7 +362,7 @@ local function stepWalkers(dt)
 			if walk.index > #walk.points then
 				arrive(walk.state, entry)
 			else
-				local bob = math.abs(math.sin(now * 11 + entry.id)) * 0.35
+				local bob = walk.animated and 0 or math.abs(math.sin(now * 11 + entry.id)) * 0.35
 				model:PivotTo(faceCFrame(walk.position + Vector3.new(0, bob, 0), walk.direction, entry.yaw))
 			end
 		end
@@ -270,18 +372,22 @@ local function stepWalkers(dt)
 		if not model or not model.Parent then
 			idlers[entry] = nil
 		else
-			local hop = math.max(0, math.sin(now * 3 + entry.id * 1.7)) * 0.5
+			local hop = idle.animated and 0 or math.max(0, math.sin(now * 3 + entry.id * 1.7)) * 0.5
 			model:PivotTo(idle.base * CFrame.new(0, hop, 0))
 		end
 	end
 end
 
 local function arrivalInterval(player)
-	local welcome = readNumber(player:GetAttribute("WelcomeBonus"), 0)
-	local base = math.clamp(Config.ARRIVAL_BASE_INTERVAL / (1 + welcome), Config.ARRIVAL_MIN_INTERVAL, Config.ARRIVAL_MAX_INTERVAL)
-	if player:GetAttribute("HasMinyan") ~= true then
-		base = math.min(base, Config.TUTORIAL_ARRIVAL_INTERVAL)
-	end
+	local welcome = readNumber(player:GetAttribute("WelcomeBonus"), 0) + providerValue("arrivalBonus", player)
+	local base = Income.arrivalInterval(
+		welcome,
+		player:GetAttribute("HasMinyan") == true,
+		Config.ARRIVAL_BASE_INTERVAL,
+		Config.ARRIVAL_MIN_INTERVAL,
+		Config.ARRIVAL_MAX_INTERVAL,
+		Config.TUTORIAL_ARRIVAL_INTERVAL
+	)
 	local jitter = 1 + (rng:NextNumber() * 2 - 1) * Config.ARRIVAL_JITTER
 	return base * jitter
 end
@@ -306,6 +412,7 @@ local function spawnArrival(state)
 	else
 		entry.status = "seated"
 		state.count += 1
+		giveTip(state, info.seats[seatIndex].Position)
 		setCongregation(state)
 	end
 end
@@ -410,6 +517,10 @@ local function greet(state, entry, who)
 	if not Guard.allow(who, "Greet", Config.COOLDOWNS.Greet) then
 		return
 	end
+	if not Guard.nearPart(who, entry.model.PrimaryPart, Config.GREET_DISTANCE * 2.5) then
+		Guard.flag(who, "Greet", "too far from guest")
+		return
+	end
 	if who:GetAttribute("TutorialStep") ~= Constants.TUTORIAL.GREET then
 		return
 	end
@@ -437,6 +548,7 @@ local function greet(state, entry, who)
 	Economy.grant(who, Constants.GREET_REWARD, "greet")
 	Fx.floatText(head, "+" .. Constants.GREET_REWARD, GOLD)
 	Fx.sparkle(head - Vector3.new(0, 2, 0))
+	Fx.sound(head, Config.SOUNDS.ping, 0.7, 0.9 + state.greetCount * 0.2)
 	startWalk(state, entry)
 	state.greetCount += 1
 	CongregationService.Greeted:Fire(who, state.greetCount)
@@ -450,26 +562,40 @@ function CongregationService.spawnGuests(player)
 	state.guestsSpawned = true
 	local spawn = state.plot.NpcSpawn
 	local pad = state.plot.ClaimPad
-	local feet = Vector3.new(spawn.Position.X, spawn.Position.Y - spawn.Size.Y / 2, spawn.Position.Z)
+	local info = BuildingService.getInfo(player)
+	local feet, facing, lateral
+	if info then
+		local door = info.door.Position
+		feet = Vector3.new(door.X, info.floorTopY, door.Z) - info.forward * 10
+		facing = -info.forward
+		lateral = info.forward:Cross(Vector3.yAxis)
+	else
+		feet = Vector3.new(spawn.Position.X, spawn.Position.Y - spawn.Size.Y / 2, spawn.Position.Z)
+		facing = Vector3.new(pad.Position.X - feet.X, 0, pad.Position.Z - feet.Z)
+		lateral = spawn.CFrame.RightVector
+	end
 	local startVariant = rng:NextInteger(1, Config.CONGREGANT_VARIANTS)
 	for index = 1, Constants.TUTORIAL_GREETERS do
 		local entry = newEntry(state)
 		entry.variant = ((startVariant + index * 2) % Config.CONGREGANT_VARIANTS) + 1
-		local model, hip, yaw = createModel(entry.variant)
+		local model, hip, yaw, top = createModel(entry.variant, entry.seed, player:GetAttribute("Tier"))
 		entry.model = model
 		entry.hip = hip
 		entry.yaw = yaw
 		entry.status = "waiting"
+		model:SetAttribute("OwnerUserId", player.UserId)
+		CollectionService:AddTag(model, "Congregant")
 		model.Parent = state.folder
 		state.models += 1
-		local position = feet + spawn.CFrame.RightVector * ((index - 2) * 3.6)
-		local base = faceCFrame(position, Vector3.new(pad.Position.X - position.X, 0, pad.Position.Z - position.Z), yaw)
+		local position = feet + lateral * ((index - 2) * 4.4)
+		local base = faceCFrame(position, facing, yaw)
 		model:PivotTo(base)
-		idlers[entry] = { base = base }
+		local animated = model:GetAttribute("Avatar") == true and NpcAvatar.wave(model)
+		idlers[entry] = { base = base, animated = animated }
 		local attachment = Instance.new("Attachment")
 		attachment.Name = "GreetPoint"
-		attachment.Position = Vector3.new(0, 3.5 * (hip / Config.CONGREGANT_HIP), 0)
 		attachment.Parent = model.PrimaryPart
+		attachment.WorldPosition = base.Position + Vector3.new(0, top * 0.62, 0)
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "GreetPrompt"
 		prompt.ActionText = "Greet"
@@ -478,6 +604,29 @@ function CongregationService.spawnGuests(player)
 		prompt.MaxActivationDistance = Config.GREET_DISTANCE
 		prompt.RequiresLineOfSight = false
 		prompt.Parent = attachment
+		local marker = Instance.new("BillboardGui")
+		marker.Name = "GreetMarker"
+		marker.Size = UDim2.fromOffset(54, 54)
+		marker.StudsOffsetWorldSpace = Vector3.new(0, top * 0.38 + 1.3, 0)
+		marker.AlwaysOnTop = true
+		marker.LightInfluence = 0
+		marker.MaxDistance = 260
+		marker.Parent = attachment
+		local mark = Instance.new("TextLabel")
+		mark.BackgroundTransparency = 1
+		mark.Size = UDim2.fromScale(1, 1)
+		mark.Font = Enum.Font.FredokaOne
+		mark.Text = "!"
+		mark.TextScaled = true
+		mark.TextColor3 = GOLD
+		mark.Parent = marker
+		local outline = Instance.new("UIStroke")
+		outline.Thickness = 3.5
+		outline.Color = Color3.fromRGB(30, 30, 50)
+		outline.Parent = mark
+		TweenService:Create(marker, TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
+			StudsOffsetWorldSpace = Vector3.new(0, 4.6, 0),
+		}):Play()
 		prompt.Triggered:Connect(function(who)
 			greet(state, entry, who)
 		end)
@@ -589,6 +738,23 @@ function CongregationService.clear(player)
 	state.nextArrival = math.huge
 end
 
+function CongregationService.reset(player)
+	local state = states[player]
+	if not state then
+		return
+	end
+	for _, entry in state.entries do
+		removeEntry(state, entry)
+	end
+	state.count = 0
+	state.walking = 0
+	state.restoreTarget = nil
+	state.nextArrival = os.clock() + 4
+	if player.Parent == Players then
+		player:SetAttribute("Congregation", 0)
+	end
+end
+
 function CongregationService.forget(player)
 	CongregationService.clear(player)
 	states[player] = nil
@@ -603,22 +769,54 @@ function CongregationService.savedCount(player)
 	return math.max(current, state.restoreTarget or 0)
 end
 
+function CongregationService.setProviders(newProviders)
+	providers = newProviders or {}
+end
+
 function CongregationService.greetCount(player)
 	local state = states[player]
 	return state and state.greetCount or 0
 end
 
+local function publishStats()
+	local models, seated = 0, 0
+	for _, state in states do
+		models += state.models
+		seated += state.count
+	end
+	local workspaceRoot = game:GetService("Workspace")
+	if workspaceRoot:GetAttribute("CongregantModels") ~= models then
+		workspaceRoot:SetAttribute("CongregantModels", models)
+	end
+	if workspaceRoot:GetAttribute("CongregantsSeated") ~= seated then
+		workspaceRoot:SetAttribute("CongregantsSeated", seated)
+	end
+end
+
 function CongregationService.start()
+	task.spawn(function()
+		for _ = 1, 10 do
+			if NpcAvatar.prepare() then
+				return
+			end
+			task.wait(2)
+		end
+	end)
 	RunService.Heartbeat:Connect(function(dt)
 		local ok, err = pcall(stepWalkers, dt)
 		if not ok then
 			warn("[Congregation] movement failed: " .. tostring(err))
 		end
 	end)
+	local lastStats = 0
 	task.spawn(function()
 		while true do
 			task.wait(0.25)
 			local now = os.clock()
+			if now - lastStats >= 1 then
+				lastStats = now
+				publishStats()
+			end
 			for _, state in states do
 				if state.plot and state.info and state.folder then
 					local ok, err = pcall(function()

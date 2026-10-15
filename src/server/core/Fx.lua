@@ -5,6 +5,8 @@ local Workspace = game:GetService("Workspace")
 local Fx = {}
 
 local folder
+local alive = 0
+local Config = require(script.Parent.Config)
 
 local RAINBOW = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 82, 82)),
@@ -55,6 +57,10 @@ local function anchorPart(position, lifetime)
 	part.Position = position
 	part.Parent = fxFolder()
 	Debris:AddItem(part, lifetime)
+	alive += 1
+	part.Destroying:Connect(function()
+		alive -= 1
+	end)
 	return part
 end
 
@@ -84,6 +90,9 @@ local function burst(position, config)
 end
 
 function Fx.sparkle(position)
+	if alive >= Config.MAX_FX_PARTS then
+		return
+	end
 	burst(position, {
 		rate = 140,
 		duration = 0.15,
@@ -115,6 +124,9 @@ function Fx.confetti(position, power)
 end
 
 function Fx.puff(position)
+	if alive >= Config.MAX_FX_PARTS then
+		return
+	end
 	burst(position, {
 		rate = 90,
 		duration = 0.2,
@@ -150,6 +162,172 @@ function Fx.ring(position, color, radius)
 		Size = Vector3.new(0.4, size, size),
 		Transparency = 1,
 	}):Play()
+end
+
+local FIREWORK_COLORS = {
+	Color3.fromRGB(255, 82, 82),
+	Color3.fromRGB(255, 205, 66),
+	Color3.fromRGB(94, 226, 130),
+	Color3.fromRGB(86, 176, 255),
+	Color3.fromRGB(190, 130, 255),
+	Color3.fromRGB(255, 154, 72),
+}
+
+function Fx.sound(position, soundId, volume, pitch)
+	local part = anchorPart(position, 3)
+	local sound = Instance.new("Sound")
+	sound.SoundId = soundId
+	sound.Volume = volume or 0.6
+	sound.PlaybackSpeed = pitch or 1
+	sound.RollOffMode = Enum.RollOffMode.InverseTapered
+	sound.RollOffMinDistance = 20
+	sound.RollOffMaxDistance = 160
+	sound.Parent = part
+	sound:Play()
+end
+
+local function flash(position, color)
+	local part = anchorPart(position, 1)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 70
+	light.Brightness = 4.5
+	light.Shadows = false
+	light.Parent = part
+	TweenService:Create(light, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Brightness = 0,
+		Range = 20,
+	}):Play()
+end
+
+function Fx.firework(position, color, height)
+	if alive >= Config.MAX_FX_PARTS then
+		return
+	end
+	color = color or FIREWORK_COLORS[math.random(#FIREWORK_COLORS)]
+	height = height or 44
+	local rocket = anchorPart(position, 3)
+	rocket.Size = Vector3.new(1.6, 4, 1.6)
+	rocket.Transparency = 0
+	rocket.Color = color
+	rocket.Material = Enum.Material.Neon
+	local tail = Instance.new("ParticleEmitter")
+	tail.Rate = 90
+	tail.Lifetime = NumberRange.new(0.4, 0.7)
+	tail.Speed = NumberRange.new(0, 2)
+	tail.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 0) })
+	tail.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
+	tail.LightEmission = 1
+	tail.Parent = rocket
+	Fx.sound(position, Config.SOUNDS.launch, 0.35, 1.2)
+	local travel = 0.85 + math.random() * 0.2
+	TweenService:Create(rocket, TweenInfo.new(travel, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = position + Vector3.new(0, height, 0),
+	}):Play()
+	task.delay(travel, function()
+		if not rocket.Parent then
+			return
+		end
+		local top = rocket.Position
+		rocket:Destroy()
+		burst(top, {
+			rate = 1100,
+			duration = 0.14,
+			lifetime = 2.4,
+			speedMin = 24,
+			speedMax = 48,
+			spread = 180,
+			gravity = -18,
+			size = 3.4,
+			color = ColorSequence.new(color, Color3.new(1, 1, 1)),
+			glow = 1,
+		})
+		burst(top, {
+			rate = 400,
+			duration = 0.1,
+			lifetime = 1.4,
+			speedMin = 8,
+			speedMax = 20,
+			spread = 180,
+			gravity = -8,
+			size = 2.2,
+			color = GOLD,
+			glow = 1,
+		})
+		flash(top, color)
+		Fx.sound(top, Config.SOUNDS.pop, 0.7, 0.7)
+	end)
+end
+
+function Fx.beaconFolder()
+	local container = Workspace:FindFirstChild("CoreBeacons")
+	if not container then
+		container = Instance.new("Folder")
+		container.Name = "CoreBeacons"
+		container.Parent = Workspace
+	end
+	return container
+end
+
+function Fx.beacon(position, height, color, thickness)
+	thickness = thickness or 1
+	local model = Instance.new("Model")
+	model.Name = "Beacon"
+	local function glass(name, shape, size, cframe, transparency)
+		local part = Instance.new("Part")
+		part.Name = name
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Material = Enum.Material.Neon
+		part.Color = color
+		part.Shape = shape
+		part.Size = size
+		part.CFrame = cframe
+		part.Transparency = transparency
+		part.Parent = model
+		return part
+	end
+	local upright = CFrame.new(position + Vector3.new(0, height / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+	glass("Shaft", Enum.PartType.Cylinder, Vector3.new(height, 9 * thickness, 9 * thickness), upright, 0.74)
+	glass("Core", Enum.PartType.Cylinder, Vector3.new(height, 2 * thickness, 2 * thickness), upright, 0.3)
+	local star = glass("Star", Enum.PartType.Ball, Vector3.one * 8 * thickness, CFrame.new(position + Vector3.new(0, height + 3, 0)), 0.1)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 60
+	light.Brightness = 2.5
+	light.Shadows = false
+	light.Parent = star
+	local base = glass("Base", Enum.PartType.Ball, Vector3.one * 3, CFrame.new(position + Vector3.new(0, 1, 0)), 1)
+	local rise = Instance.new("ParticleEmitter")
+	rise.Rate = 8 + thickness * 4
+	rise.Lifetime = NumberRange.new(6, 7)
+	rise.Speed = NumberRange.new(height / 7, height / 6)
+	rise.SpreadAngle = Vector2.new(4, 4)
+	rise.EmissionDirection = Enum.NormalId.Top
+	rise.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0.3) })
+	rise.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
+	rise.LightEmission = 1
+	rise.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, 0.1),
+		NumberSequenceKeypoint.new(0.85, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	rise.Parent = base
+	model.Parent = Fx.beaconFolder()
+	return model
+end
+
+function Fx.fireworkShow(center, count, height)
+	for index = 1, count do
+		task.delay((index - 1) * 0.32 + math.random() * 0.2, function()
+			local offset = Vector3.new(math.random(-22, 22), 0, math.random(-22, 22))
+			Fx.firework(center + offset, nil, (height or 46) + math.random(-8, 16))
+		end)
+	end
 end
 
 function Fx.floatText(position, text, color)

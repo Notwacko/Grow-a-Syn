@@ -32,7 +32,7 @@ Constants.SEATS_PER_TIER = { 12, 20, 30, 42, 56, 72, 100 }
 Constants.MINYAN_SIZE = 10
 Constants.PLOT_COUNT = 8
 Constants.START_MONEY = 100
-Constants.MONEY_MAX = 1e15
+Constants.MONEY_MAX = 1e18
 Constants.GREET_REWARD = 10
 Constants.TUTORIAL_GREETERS = 3
 

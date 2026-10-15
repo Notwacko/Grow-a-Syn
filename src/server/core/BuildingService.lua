@@ -163,6 +163,12 @@ local function placeBuilding(plot, model)
 	model:PivotTo(CFrame.new(position) * anchor.CFrame.Rotation * turn:Inverse())
 end
 
+local function verticalHalfExtent(part)
+	local cframe = part.CFrame
+	local size = part.Size
+	return math.abs(cframe.RightVector.Y) * size.X / 2 + math.abs(cframe.UpVector.Y) * size.Y / 2 + math.abs(cframe.LookVector.Y) * size.Z / 2
+end
+
 local function buildInfo(model)
 	local floor = model.PrimaryPart
 	local door = model:FindFirstChild("Door", true)
@@ -181,7 +187,7 @@ local function buildInfo(model)
 		seats = seats,
 		seatCount = #seats,
 		forward = forward.Unit,
-		floorTopY = floor.Position.Y + floor.Size.Y / 2,
+		floorTopY = door.Position.Y - verticalHalfExtent(door),
 	}
 end
 
