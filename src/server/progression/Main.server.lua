@@ -1,0 +1,15 @@
+local InventoryService = require(script.Parent.InventoryService)
+local EffectsService = require(script.Parent.EffectsService)
+local DenominationService = require(script.Parent.DenominationService)
+local ShopService = require(script.Parent.ShopService)
+local MergeService = require(script.Parent.MergeService)
+local EquipService = require(script.Parent.EquipService)
+
+EffectsService.init()
+DenominationService.init()
+ShopService.init()
+MergeService.init()
+EquipService.init()
+InventoryService.init()
+
+workspace:SetAttribute("ProgressionOnline", true)
