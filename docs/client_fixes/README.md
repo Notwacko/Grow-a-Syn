@@ -1,15 +1,13 @@
-# Client fixes (role C folder)
+# Client (role C folder)
 
-The pre-commit hook does not allow role A to commit `src/client`, so the fixed client scripts live here until role C merges them. The same files are untracked in `src/client` so the Studio sync tool keeps pushing them into the place.
+The pre-commit hook does not allow role A to commit `src/client`, so the full client lives here until role C merges it. The same files are untracked in `src/client` so the Studio sync tool keeps pushing them into the place.
 
-- `Main.client.lua`: `ScreenInsets = CoreUISafeInsets` instead of `TopbarSafeInsets` (the old value sized the ScreenGui to the 58 pixel topbar strip and cut popups off), a smaller scale on desktop, and the Land and Upgrade buttons call the server and show the reason when a call fails.
-- `HUD.lua`: decluttered. One money pill with the income rate under it, four small icon only buttons, a thin stage ladder shown after the denomination choice, one slim congregation bar. The duplicate quick buttons, stats text and price badges are gone.
-- `Tutorial.lua`: banner moved up for the compact layout.
-- `TierPopup.lua`: waits for `DataLoaded` so the saved tier no longer pops a "NEW TIER" window at join.
-- `patch_components.lua`: run once in Studio (Edit mode) to give `Components` an `image` option for buttons and pills and to replace the unreadable close glyph with an X. It is idempotent.
-- `ShopUI.lua`: the restocking shop. One icon tab per item category, a restock countdown, stock counts on every card, a sold out state and rarity colored cards with the real item model.
-- `patch_client.lua`: run once in Studio (Edit mode) after the files above are synced. Adds `Net.refreshCatalog` and `Net.ShopSeen`, makes `Components.modelView` accept `rarity` and `mutation` so previews show the rarity skin, and teaches `InventoryUI` to show mutations and growth. Idempotent.
-- `HUD.lua` also shows a dot on the Shop button after a restock and a timer pill while a Shabbat event runs.
-- `InteriorCamera.lua`: keeps the camera inside the hall while the player is inside. The interior walls are not solid for the camera, so near the ark the default camera ended up behind the back wall and showed a blank wall. Core now adds an invisible tagged `CameraBox` to every building and this module clamps the camera to it with smoothing. `Main.client.lua` starts it.
-- `Net.lua`, `Components.lua` and `InventoryUI.lua` are full copies of role C's modules with the patches from `patch_client.lua` and `patch_components.lua` already applied. They are untracked in `src/client` too, so a sync always restores them. Studio sometimes reverts script edits made only inside the place, which is why they live in files.
-- Icons are rendered in Blender (`art/src/build_icons.py`) and uploaded; their asset ids are in `src/shared/Icons.lua`.
+At the owner's request role A rewrote the whole interface. Copy `docs/client_fixes/client/` over `src/client/` and delete the old modules (Components, HUD, InventoryUI, Net, ShopUI, TierPopup, Tutorial, Contract, Theme, Format, FloatingNumbers, Notifications, DenominationPickerUI, BuildingUpgradeUI, LandExpandUI, IconSet, Sound, Dev, MockNet, Link, ModelLookup).
+
+Layout:
+- `Main.client.lua` builds five ScreenGuis (HUD, tutorial, menu, popups, toasts) with a scale that follows the screen height (phone layout when touch only).
+- `InteriorCamera.lua` keeps the camera inside the hall (the building has an invisible tagged `CameraBox`).
+- `ui/` shared components: `Theme`, `Ui` (buttons, bars, modals, pills, badges), `Store` (attributes, `RF_Game`/`RE_Game` sections, catalog and inventory caches), `Layers`, `Toasts`, `Hud`, `Menu` (tabbed menu), `Reveal` (reward popups), `Popups` (daily rewards, lucky wheel, welcome back), `Denomination`, `TierPopup`, `Tutorial`, `Events`, `ItemView`, `PetsWorld` (client side pets that follow every player), `Sfx`, `Util`, `Signal`.
+- `panels/` one module per menu tab: Shop, Items, Pets, Style, Quests, Collection Book, Store, Legacy, Leaderboards, Settings.
+
+Server contract used by the client: `RF_Game(action, payload)` with actions `service.action` (for example `pets.hatch`, `daily.claim`), `RE_Game(kind, payload)` pushes sections and events, plus the original contract remotes (`RF_GetCatalog`, `RF_Buy`, `RF_Merge`, ...). Details are in `docs/MODULES.md`.

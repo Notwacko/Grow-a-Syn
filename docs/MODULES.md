@@ -34,14 +34,39 @@ Religious details to review (neutral choices, listed for the rabbi): the exact d
 ## Item shop
 The shop is a restocking market for ritual items, modelled on the "grow" loop of the big simulator games.
 
-- `src/shared/ItemCatalog.lua` is pure data: 8 categories (the contract ones) times 6 rarities = 48 items, with ids like `siddur_common`. The model is the category name, the rarity is a skin applied in code (`src/shared/ItemSkin.lua`). Prices, income bonus, growth time and stock odds are in the rarity and category tables.
-- The shop restocks every 5 minutes. Stock for an epoch is derived from the epoch number, so every server shows the same stock at the same time. `workspace` attributes `ShopEpoch` and `ShopRestockAt` tell the client. Buying lowers the server's stock. The first siddur (common, 50 money) is always in stock.
-- A bought item goes into the first free slot of its category and starts to grow. Growth only runs while the item is placed and is kept across sessions with a start time. The item scales up and its income bonus rises from 40 percent to 100 percent while it grows.
-- When an item finishes growing it rolls a mutation: Gilded (12 percent, x1.5), Radiant (4 percent, x2.2) or Ancient (1 percent, x3.5). The result is saved.
-- Merging three identical items gives the next rarity and takes the slot of a placed ingredient. Sefer Torah items have no merge and there is no sell or delete anywhere.
-- `IncomeMult` is the tier multiplier times one plus the bonus of all placed items. It is recomputed every two seconds while anything grows.
-- Items are saved in the core record under `progress.items` (uid, id, slot, grown seconds, start time, mutation).
-- `ItemService.Changed`, `Grew` and `Matured` signals drive the visuals and income. Bought items fire `Bridge.Purchased` so the tutorial step advances.
+- `src/shared/ItemCatalog.lua` is pure data: 8 categories (the contract ones) times 6 rarities = 48 items, with ids like `siddur_common`. The model is the category name, the rarity is a skin applied in code (`src/shared/ItemSkin.lua`).
+- Each shop shows 8 shelf slots that restock every 5 minutes (4 with the Swift Delivery pass). The stock for an epoch comes from the epoch number, so all servers agree. Fair odds: the rarity weights are in `ItemCatalog.RARITIES`, a Rare or better is guaranteed every 6 restocks, an Epic every 18 and a Legendary every 60, and a Simple Siddur is always on a permanent starter shelf. The Odds button in the shop shows all of it (`RF_GetCatalog` returns `odds`, `pity`).
+- Prices scale by 4x per building stage (`Balance.priceScale`). Income is multiplied by 3x per stage (`Balance.TIER_MULT`).
+- A bought item goes into the first free slot of its category and starts to grow. Growth only runs while the item is placed and is kept across sessions with a start time. Growth speed is the player attribute `GrowthRate` (Rapid Growth pass, Growth Lamp). Growth raises the item bonus from 40 percent to 100 percent.
+- When an item finishes growing it rolls a mutation: Polished (6 percent, x1.5), Gilded (2.5 percent, x3), Radiant (1 percent, x6), Luminous (0.4 percent, x15) or Ancient (0.1 percent, x50). Golden Dew (from the wheel) guarantees a mutation of x3 or better.
+- Merging three identical items gives the next rarity. Three identical Mythical items merge into the same item with one more star (up to 10 stars, big income multipliers). Sefer Torah items never merge and there is no sell or delete anywhere. `ItemService.mergeAll` powers the Quick Merge pass.
+- `IncomeMult` is computed by `IncomeService` as the product of registered factors: stage multiplier, items, Membership Desk, Collection Book, Legacy, pets and friends. Each system registers its own factor.
+- Items are saved in the core record under `progress.items` (uid, id, slot, grown seconds, start time, mutation, star).
+- `ItemService.Changed`, `Grew`, `Matured`, `Bought`, `Merged` signals drive visuals, quests and the collection book. Bought items fire `Bridge.Purchased` so the tutorial step advances.
+
+## Game systems (RF_Game)
+`GameService` registers one module per system and exposes `RF_Game(action, payload)` where action is `service.action`, plus `sync` (all sections) and the server push `RE_Game(kind, payload)`. The client keeps sections in `ui/Store.lua`. All of them save under `data.sections` through `DataService.registerSection` (the `state` section is `PlayerState`, a small key value store).
+
+| Service | What it does | Actions |
+|---|---|---|
+| BoostService | Festival Boost and Growth Lamp timers, pass effects on `BoostMult`, `GrowthRate`, `WelcomeBonus` | none |
+| CollectionBook | discovered items, milestone rewards at 10/25/50/75/100 percent, permanent income bonus up to +20 percent | `claim` |
+| LegacyService | prestige. Unlocks at stage 4. Points from lifetime earnings, income x(1 + 0.2 per point), heirlooms, Torah always kept | `info`, `confirm` |
+| DailyService | 7 day calendar, 36 hour window, freezes, rewards in minutes of income, day 7 gives an item | `claim` |
+| QuestService | 3 daily quests and 5 weekly goals, rewards in minutes of income | `claim` |
+| OfflineService | earnings while away (25 percent, 4 to 12 hour cap), welcome back claim | `claim` |
+| SpinService | one free wheel spin per day, honest odds, server picks the prize first | `spin`, `collect` |
+| PetService | eggs for in-game money, pity, duplicates level pets, income bonus, follow you | `hatch`, `equip`, `unequip` |
+| WardrobeService | cosmetics catalog, ownership, equip per slot, effects | `buy`, `equip`, `unequip`, `outfit`, `style` |
+| MonetizationService | game passes, developer products, receipts, fixed outcome Robux items | `buyPass`, `buyProduct` |
+| LeaderboardService | weekly OrderedDataStore boards (collector score and congregation size) | `refresh` |
+| SettingsService | sound, colorblind colors, pets visibility | `set` |
+| FriendsBonus | +5 percent income per friend in the server (max 5) | none |
+
+Every action is rate limited per player and payloads are size checked (`GameService`). Rewards come from `Rewards.grantMinutes` (income minutes with a floor) and `Rewards.grantItem`.
+
+## Congregants
+`NpcAvatar` builds real R15 avatars (`Players:CreateHumanoidModelFromDescription`, six body shapes, kids at 0.72 scale) with a skin tone, hair, shirt and trouser colors and a list of `ofit_*` pieces picked by the building stage (casual kippot at the start, then jackets, hats and long coats toward Hasidic). The root is anchored, walking uses the default R15 walk animation, greeters wave, and seated guests get a baked sitting pose through the joint offsets, after which the Humanoid and Animator are removed. If the avatar templates cannot be built the old toy models are used.
 
 ## Events
 `EventService` runs a Shabbat event 4 minutes after the server starts and then every 15 minutes: `Economy.setEventMult(2)`, warm golden light, and the workspace attributes `EventName` and `EventEndsAt` (the HUD shows a timer pill). It lasts 3 minutes. `EventService.trigger(seconds)` starts one on demand.
@@ -58,17 +83,15 @@ Modules shipped now:
 `Fx` (shared effect helpers) gained `firework`, `fireworkShow`, `beacon` and `sound`. Sound ids live in `Config.SOUNDS` and tier colours in `Config.TIER_COLORS`. `PlayerFx` gives each player a soft sparkle trail tinted by their tier.
 
 ## Upgrades
-`src/shared/UpgradeCatalog.lua` is pure data plus small functions. To add an upgrade, add a table to `UpgradeCatalog.list` (id, name, blurb, effect, perLevel, baseCost, growth, maxLevel, color). Station, saving and attribute `Upg_<id>` appear automatically (stations use fixed spots, four fit now).
+`src/shared/UpgradeCatalog.lua` is pure data plus small functions. There is no maximum level: cost is `baseCost * 1.15^level` (`Balance.upgradeCost`) and the effect grows linearly to level 25, then at a quarter of the rate (`Balance.upgradeTotal`). The station shows "Level N" and five pips that cycle, with a crown from level 25.
 
 Effects wired in core today:
-- `arrival_speed` adds to the arrival rate (on top of the other team's WelcomeBonus).
-- `arrival_tip` gives money for each new arrival, scaled by building tier.
-- `dues` gives money per seated person per second. It is added to `MoneyPerSecond` and shown separately in the player attribute `BonusPerSecond`.
+- `arrival_speed` (Welcome Table) adds to the arrival rate.
+- `arrival_tip` (Kiddush Table) gives money for each new arrival, scaled by the stage multiplier.
+- `income` (Membership Desk) multiplies all income through `IncomeService`.
 
-To add a new effect type, add its function to `UpgradeCatalog` and read it where it applies (`UpgradeService` exposes providers that Economy and CongregationService call).
-
-Levels are saved in the same DataStore record (`upgrades`) and restored on join.
+Levels are saved in the same DataStore record (`upgrades`) and restored on join. Legacy resets them.
 
 ## Contract notes
-- New player attributes (extras, not in the frozen table): `Upg_<id>` levels, `BonusPerSecond`, `DataLoaded`. New workspace attributes: `ShopEpoch`, `ShopRestockAt`, `EventName`, `EventEndsAt`.
-- `MoneyPerSecond` now equals the contract formula plus `BonusPerSecond`. With no upgrades bought it is identical to the contract.
+- New player attributes (extras, not in the frozen table): `Upg_<id>` levels, `BonusPerSecond`, `DataLoaded`, `GrowthRate`, `GrowthEndsAt`, `PetsEquipped`, `GoldenDew`, `FriendsBonus`, `FriendsCount`, `Pass_<key>`, `PassesLoaded`, `ShopEpoch`, `ShopRestockAt`, `ShopRestockSeconds`. New workspace attributes: `EventName`, `EventEndsAt`. `BoostMult` is now 1 plus the sum of active boosts (Double Income, Patron, Festival), which matches the contract when nothing is active.
+- `MoneyPerSecond` equals the contract formula (`Congregation * IncomeMult * BoostMult * EventMult` after the minyan). `IncomeMult` is owned by `IncomeService` while `ProgressionOnline` is false.

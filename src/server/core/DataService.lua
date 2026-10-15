@@ -112,7 +112,7 @@ end
 local function itemsSignature(items)
 	local parts = {}
 	for _, entry in items or {} do
-		table.insert(parts, string.format("%s:%s:%s:%s:%d", entry.uid, tostring(entry.slot), tostring(entry.mut), tostring(entry.since), math.floor(entry.grown or 0)))
+		table.insert(parts, string.format("%s:%s:%s:%s:%d:%d", entry.uid, tostring(entry.slot), tostring(entry.mut), tostring(entry.since), math.floor(entry.grown or 0), entry.star or 0))
 	end
 	return table.concat(parts, ",")
 end

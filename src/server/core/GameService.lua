@@ -36,6 +36,29 @@ local function fail(reason)
 	return { ok = false, reason = reason }
 end
 
+local function payloadOk(value, depth, budget)
+	if type(value) == "table" then
+		if depth > 3 then
+			return false
+		end
+		for key, inner in value do
+			budget.count += 1
+			if budget.count > 160 or (type(key) ~= "string" and type(key) ~= "number") then
+				return false
+			end
+			if not payloadOk(inner, depth + 1, budget) then
+				return false
+			end
+		end
+		return true
+	end
+	local kind = type(value)
+	if kind == "string" then
+		return #value <= 64
+	end
+	return kind == "number" or kind == "boolean"
+end
+
 function GameService.register(name, service)
 	if not services[name] then
 		table.insert(order, name)
@@ -121,6 +144,10 @@ local function handle(player, action, payload)
 		return fail("invalid")
 	end
 	payload = payload or {}
+	if not payloadOk(payload, 0, { count = 0 }) then
+		Guard.flag(player, "Game", "bad payload for " .. action)
+		return fail("invalid")
+	end
 	if not takeToken(player) then
 		Guard.flag(player, "Game", "too many calls")
 		return fail("busy")

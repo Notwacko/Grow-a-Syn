@@ -41,6 +41,7 @@ local WardrobeService = require(core.WardrobeService)
 local MonetizationService = require(core.MonetizationService)
 local LeaderboardService = require(core.LeaderboardService)
 local SettingsService = require(core.SettingsService)
+local FriendsBonus = require(core.FriendsBonus)
 
 Workspace:SetAttribute("CoreOnline", false)
 
@@ -103,6 +104,7 @@ SpinService.start()
 PetService.start()
 MonetizationService.start()
 LeaderboardService.start()
+FriendsBonus.start()
 DataService.start()
 
 PlotService.Claimed:Connect(function(player)
