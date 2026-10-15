@@ -112,7 +112,7 @@ Config.CLOTH_BOTTOM_COLORS = {
 }
 
 Config.COLORS = {
-	grass = Color3.fromRGB(98, 214, 64),
+	grass = Color3.fromRGB(82, 184, 66),
 	grassLight = Color3.fromRGB(128, 232, 84),
 	plot = Color3.fromRGB(116, 226, 74),
 	plaza = Color3.fromRGB(236, 226, 196),

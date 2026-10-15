@@ -136,7 +136,7 @@ local function createModel(variant)
 	tint(model)
 	shadeParts(model)
 	local scale = (model:GetAttribute("BaseScale") or 1) * rng:NextNumber(0.92, 1.08)
-	model:ScaleTo(scale)
+	model:ScaleTo(model:GetScale() * scale)
 	local yaw = math.rad(model:GetAttribute("FaceYaw") or 0)
 	return model, Config.CONGREGANT_HIP * scale, yaw
 end
