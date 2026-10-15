@@ -4,6 +4,8 @@ local Assets = require(script.Parent.Assets)
 local Signal = require(script.Parent.Signal)
 local Notify = require(script.Parent.Notify)
 local OutfitBuilder = require(script.Parent.OutfitBuilder)
+local WardrobeService = require(script.Parent.WardrobeService)
+local CosmeticFx = require(script.Parent.CosmeticFx)
 local Catalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("OutfitCatalog"))
 
 local CosmeticsService = {}
@@ -11,6 +13,13 @@ local CosmeticsService = {}
 CosmeticsService.Changed = Signal.new()
 
 local states = {}
+
+local GROUPS = {
+	head = { "gear_kippah", "kippah_rainbow", "kippah_navy", "kippah_knit", "kippah_velvet", "tichel_blue", "tichel_black", "tichel_silk", "shtreimel", "fedora_black", "hat_black_wide", "hat_modest" },
+	hat = { "shtreimel", "fedora_black", "hat_black_wide", "hat_modest", "tichel_blue", "tichel_black", "tichel_silk" },
+	tallit = { "gear_tallit", "tallit_sky", "tallit_classic", "tallit_gold" },
+	neck = { "tie_blue" },
+}
 
 local function tierOf(player)
 	return math.clamp(math.floor(tonumber(player:GetAttribute("Tier")) or 1), 1, 7)
@@ -59,16 +68,29 @@ local function wear(player, character)
 			child:Destroy()
 		end
 	end
-	local custom = {}
-	for _, id in Catalog.pieces(outfit, state.style) do
-		local gear = OutfitBuilder.gearFor(id)
-		if gear then
-			addGear(humanoid, id, gear)
-		elseif OutfitBuilder.has(id) then
-			table.insert(custom, id)
+	local worn, effect = WardrobeService.entries(player)
+	local removed = {}
+	for _, entry in worn do
+		for _, id in GROUPS[entry.slot] or {} do
+			removed[id] = true
 		end
 	end
+	local custom = {}
+	for _, id in Catalog.pieces(outfit, state.style) do
+		if not removed[id] then
+			local gear = OutfitBuilder.gearFor(id)
+			if gear then
+				addGear(humanoid, id, gear)
+			elseif OutfitBuilder.has(id) then
+				table.insert(custom, id)
+			end
+		end
+	end
+	for _, entry in worn do
+		table.insert(custom, entry)
+	end
 	OutfitBuilder.apply(character, custom)
+	CosmeticFx.apply(character, effect)
 	player:SetAttribute("Outfit", outfit.id)
 	player:SetAttribute("OutfitStyle", state.style)
 end
@@ -83,6 +105,11 @@ end
 function CosmeticsService.watch(player)
 	local state = { token = 0, outfit = Catalog.AUTO, style = "classic", connections = {} }
 	states[player] = state
+	table.insert(state.connections, WardrobeService.Changed:Connect(function(target)
+		if target == player then
+			rewear(player)
+		end
+	end))
 	table.insert(state.connections, player.CharacterAdded:Connect(function(character)
 		task.spawn(wear, player, character)
 	end))
