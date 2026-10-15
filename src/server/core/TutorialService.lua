@@ -45,6 +45,10 @@ local function celebrateMinyan(player)
 end
 
 local function skipBuyIfOffline(player, state)
+	if not state.gardenHint then
+		state.gardenHint = true
+		Notify.send(player, "info", "Tip: buy seeds at the Shuk in the plaza and plant them in your garden beds")
+	end
 	if state.buyScheduled or workspace:GetAttribute("ProgressionOnline") == true then
 		return
 	end

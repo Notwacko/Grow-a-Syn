@@ -46,7 +46,7 @@ Config.ARRIVAL_MIN_INTERVAL = 1.5
 Config.ARRIVAL_MAX_INTERVAL = 10
 Config.ARRIVAL_JITTER = 0.2
 Config.TUTORIAL_ARRIVAL_INTERVAL = 3
-Config.TUTORIAL_BUY_FALLBACK_DELAY = 4
+Config.TUTORIAL_BUY_FALLBACK_DELAY = 75
 
 Config.WALK_SPEED = 13
 Config.WALK_SPEED_RANGE = { 0.85, 1.2 }
@@ -90,6 +90,8 @@ Config.COOLDOWNS = {
 	Greet = 0.25,
 	Upgrade = 0.6,
 	Cosmetics = 0.4,
+	Garden = 0.25,
+	GardenBuy = 0.2,
 }
 
 Config.CLOTH_TOP_COLORS = {

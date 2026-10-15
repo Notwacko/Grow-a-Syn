@@ -27,6 +27,19 @@ The Wardrobe mirror (interior module `Wardrobe`) lets the player preview and pic
 
 Religious details to review (neutral choices, listed for the rabbi): the exact dress per movement, beard and sidelocks on the Ultra-Orthodox, Hasidic and Haredi outfits, the fur hat and silk coat at the top tier, and the modest dress options. Sephardic and Mizrahi players use the tier outfits until those ladders are specified.
 
+## Garden (the Seven Species)
+A Grow a Garden style loop with a Jewish theme: buy seeds at the Shuk (plaza market), plant them in your garden beds, wait, harvest, sell, repeat.
+- `src/shared/GardenCatalog.lua` is pure data and math: seven crops (wheat, barley, grapes, figs, olives, pomegranate, dates) with rarity, seed cost, grow time, sell value and weight, the Wet, Sunlit, Golden and Rainbow mutations, weather events, stock rolls, pricing and save cleaning. Unit tested.
+- `GardenService` owns the per player state: seeds, basket, 18 beds per plot (6 open at land tier 1, 3 more per land tier), the shared shop stock that restocks every 5 minutes, planting, harvesting (renewable crops regrow), selling, hotbar seed tools and saving (`garden` in the core DataStore, offline growth counts).
+- `garden/Plants.lua` builds each crop from parts with four growth stages and mutation effects. `garden/Weather.lua` schedules rain and sunshine (faster growth, Wet and Sunlit chances, sky and rain effects).
+- `ambient/Shuk.lua` builds the Seed Shop (one crate per crop with price and stock, live restock and weather board) and the Sell Stand with its merchant.
+- Player attributes for the UI: `Seeds`, `Seed_<crop>`, `BasketCount`, `BasketValue`, `SelectedSeed`. Workspace attributes: `Stock_<crop>`, `GardenRestockAt`, `Weather`, `WeatherEndsAt`.
+- Dev hooks (server only): set workspace attribute `ForceWeather` to `rain` or `sunny`, or `ForceRestock` to `true`.
+- Buying seeds fires `Bridge.Purchased`, so it counts as the tutorial's first purchase.
+
+## Progression fallback
+`ProgressionFallback` creates the progression remotes (`RF_GetCatalog`, `RF_ChooseDenomination`, `RF_UpgradeBuilding`, the inventory ones and `RE_InventoryChanged`) only if they do not exist yet, and marks them with the attribute `CoreFallback`. It serves a catalog with the Ashkenazi ladder and implements choosing a denomination (at the minyan) and upgrading the building tier for money (land tier N minus 1 required). It also writes `Denomination`, `Tier` and `IncomeMult` and saves them. It switches itself off as soon as `workspace.ProgressionOnline` is true, and role B only needs to assign its own `OnServerInvoke` handlers to take over. The shop and inventory calls answer `locked`.
+
 ## Ambient modules
 Every ModuleScript inside `src/server/core/ambient/` is loaded by `AmbientService` at startup (after the plots exist), sorted by `order`, and its `build()` is called once. Use it for world decoration that does not belong to one player.
 

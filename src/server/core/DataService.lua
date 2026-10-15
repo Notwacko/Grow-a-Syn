@@ -7,6 +7,7 @@ local Guard = require(script.Parent.Guard)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 local UpgradeCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
 local OutfitCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("OutfitCatalog"))
+local GardenCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GardenCatalog"))
 
 local DataService = {}
 
@@ -17,6 +18,8 @@ local states = {}
 local congregationProvider = nil
 local upgradeProvider = nil
 local cosmeticsProvider = nil
+local gardenProvider = nil
+local progressProvider = nil
 local warnedOffline = false
 
 local function storeKey(player)
@@ -31,7 +34,22 @@ local function defaultData()
 		congregation = 0,
 		upgrades = {},
 		cosmetics = { outfit = OutfitCatalog.AUTO, style = "classic" },
+		garden = GardenCatalog.sanitizeSave(nil),
+		progress = { denomination = "", tier = 1 },
 	}
+end
+
+local function cleanProgress(raw)
+	local result = { denomination = "", tier = 1 }
+	if type(raw) == "table" then
+		if raw.denomination == "ashkenazi" then
+			result.denomination = raw.denomination
+		end
+		if Guard.isInteger(raw.tier, 1, Constants.MAX_TIER) then
+			result.tier = raw.tier
+		end
+	end
+	return result
 end
 
 local function cleanCosmetics(raw)
@@ -81,6 +99,8 @@ local function sanitize(raw)
 	end
 	data.upgrades = cleanUpgrades(raw.upgrades)
 	data.cosmetics = cleanCosmetics(raw.cosmetics)
+	data.garden = GardenCatalog.sanitizeSave(raw.garden)
+	data.progress = cleanProgress(raw.progress)
 	return data
 end
 
@@ -90,7 +110,11 @@ local function snapshotOf(data)
 		table.insert(levels, tostring(data.upgrades and data.upgrades[definition.id] or 0))
 	end
 	local cosmetics = data.cosmetics or {}
-	return string.format("%.2f|%d|%d|%d|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style))
+	local garden = data.garden or {}
+	local progress = data.progress or {}
+	local gardenActive = next(garden.seeds or {}) ~= nil or #(garden.basket or {}) > 0 or #(garden.beds or {}) > 0
+	local gardenStamp = gardenActive and math.floor(os.time() / 60) or 0
+	return string.format("%.2f|%d|%d|%d|%s|%s|%s|%d|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style), gardenStamp, tostring(progress.denomination), tostring(progress.tier))
 end
 
 function DataService.setCongregationProvider(provider)
@@ -103,6 +127,14 @@ end
 
 function DataService.setCosmeticsProvider(provider)
 	cosmeticsProvider = provider
+end
+
+function DataService.setGardenProvider(provider)
+	gardenProvider = provider
+end
+
+function DataService.setProgressProvider(provider)
+	progressProvider = provider
 end
 
 function DataService.collect(player)
@@ -120,6 +152,8 @@ function DataService.collect(player)
 		congregation = math.floor(tonumber(congregation) or 0),
 		upgrades = cleanUpgrades(upgradeProvider and upgradeProvider(player) or nil),
 		cosmetics = cleanCosmetics(cosmeticsProvider and cosmeticsProvider(player) or nil),
+		garden = GardenCatalog.sanitizeSave(gardenProvider and gardenProvider(player) or nil),
+		progress = cleanProgress(progressProvider and progressProvider(player) or nil),
 	}
 end
 
@@ -190,6 +224,8 @@ function DataService.save(player, force)
 				merged.congregation = data.congregation
 				merged.upgrades = data.upgrades
 				merged.cosmetics = data.cosmetics
+				merged.garden = data.garden
+				merged.progress = data.progress
 				merged.savedAt = os.time()
 				return merged
 			end)
