@@ -20,6 +20,13 @@ Modules shipped now:
 
 `InteriorService.start()` also sets Invisicam camera occlusion (walls fade when the camera is outside) and a 350 stud max zoom so big buildings fit on screen.
 
+## Cosmetics (outfits)
+`src/shared/OutfitCatalog.lua` lists one outfit per building tier, from Everyday Rabbi (tier 1) through Reform, Conservative, Orthodox, Ultra-Orthodox and Hasidic to Haredi Festive (tier 7). Each has a `classic` and a `modest` piece list. `OutfitBuilder` turns piece ids into small welded parts on the avatar (hats, coats, sleeves, gartel, tzitzit, socks, skirts, head coverings, beard, sidelocks) and recolours the real kippah and tallit models. `CosmeticsService` wears the outfit that matches the player's `Tier` (selection `auto`) on every spawn and tier change, and saves the player's choice in the core DataStore (`cosmetics`).
+
+The Wardrobe mirror (interior module `Wardrobe`) lets the player preview and pick any outfit: E for the next outfit, F to switch between classic and modest dress. Attributes `Outfit` and `OutfitStyle` show what is worn. To add an outfit, add a table to `OutfitCatalog.list` and any new pieces to `OutfitBuilder`.
+
+Religious details to review (neutral choices, listed for the rabbi): the exact dress per movement, beard and sidelocks on the Ultra-Orthodox, Hasidic and Haredi outfits, the fur hat and silk coat at the top tier, and the modest dress options. Sephardic and Mizrahi players use the tier outfits until those ladders are specified.
+
 ## Ambient modules
 Every ModuleScript inside `src/server/core/ambient/` is loaded by `AmbientService` at startup (after the plots exist), sorted by `order`, and its `build()` is called once. Use it for world decoration that does not belong to one player.
 

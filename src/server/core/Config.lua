@@ -89,6 +89,7 @@ Config.COOLDOWNS = {
 	AdvanceTutorial = 1,
 	Greet = 0.25,
 	Upgrade = 0.6,
+	Cosmetics = 0.4,
 }
 
 Config.CLOTH_TOP_COLORS = {

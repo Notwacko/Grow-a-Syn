@@ -6,6 +6,7 @@ local Config = require(script.Parent.Config)
 local Guard = require(script.Parent.Guard)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 local UpgradeCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
+local OutfitCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("OutfitCatalog"))
 
 local DataService = {}
 
@@ -15,6 +16,7 @@ local SCHEMA_VERSION = 1
 local states = {}
 local congregationProvider = nil
 local upgradeProvider = nil
+local cosmeticsProvider = nil
 local warnedOffline = false
 
 local function storeKey(player)
@@ -28,7 +30,21 @@ local function defaultData()
 		tutorialStep = 0,
 		congregation = 0,
 		upgrades = {},
+		cosmetics = { outfit = OutfitCatalog.AUTO, style = "classic" },
 	}
+end
+
+local function cleanCosmetics(raw)
+	local result = { outfit = OutfitCatalog.AUTO, style = "classic" }
+	if type(raw) == "table" then
+		if OutfitCatalog.validSelection(raw.outfit) then
+			result.outfit = raw.outfit
+		end
+		if OutfitCatalog.validStyle(raw.style) then
+			result.style = raw.style
+		end
+	end
+	return result
 end
 
 local function cleanUpgrades(raw)
@@ -64,6 +80,7 @@ local function sanitize(raw)
 		data.congregation = 0
 	end
 	data.upgrades = cleanUpgrades(raw.upgrades)
+	data.cosmetics = cleanCosmetics(raw.cosmetics)
 	return data
 end
 
@@ -72,7 +89,8 @@ local function snapshotOf(data)
 	for _, definition in UpgradeCatalog.list do
 		table.insert(levels, tostring(data.upgrades and data.upgrades[definition.id] or 0))
 	end
-	return string.format("%.2f|%d|%d|%d|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","))
+	local cosmetics = data.cosmetics or {}
+	return string.format("%.2f|%d|%d|%d|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style))
 end
 
 function DataService.setCongregationProvider(provider)
@@ -81,6 +99,10 @@ end
 
 function DataService.setUpgradeProvider(provider)
 	upgradeProvider = provider
+end
+
+function DataService.setCosmeticsProvider(provider)
+	cosmeticsProvider = provider
 end
 
 function DataService.collect(player)
@@ -97,6 +119,7 @@ function DataService.collect(player)
 		tutorialStep = tonumber(player:GetAttribute("TutorialStep")) or 0,
 		congregation = math.floor(tonumber(congregation) or 0),
 		upgrades = cleanUpgrades(upgradeProvider and upgradeProvider(player) or nil),
+		cosmetics = cleanCosmetics(cosmeticsProvider and cosmeticsProvider(player) or nil),
 	}
 end
 
@@ -166,6 +189,7 @@ function DataService.save(player, force)
 				merged.tutorialStep = data.tutorialStep
 				merged.congregation = data.congregation
 				merged.upgrades = data.upgrades
+				merged.cosmetics = data.cosmetics
 				merged.savedAt = os.time()
 				return merged
 			end)
