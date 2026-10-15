@@ -138,8 +138,9 @@ function ShopService.init()
 	end
 
 	local getCatalog = Link.get(ReplicatedStorage, "Remotes", "RF_GetCatalog", "RemoteFunction")
-	getCatalog.OnServerInvoke = function()
-		return Catalog.public(Products)
+	getCatalog.OnServerInvoke = function(player)
+		local data = InventoryService.get(player)
+		return Catalog.public(Products, data and data.Tier or 1)
 	end
 
 	local buyRemote = Link.get(ReplicatedStorage, "Remotes", "RF_Buy", "RemoteFunction")
