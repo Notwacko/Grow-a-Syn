@@ -15,6 +15,14 @@ local Icons = {
 	clock = "rbxassetid://139760503368496",
 	lock = "rbxassetid://104790423326890",
 	people = "rbxassetid://133771457740505",
+	item_torah = "rbxassetid://90243248896099",
+	item_ark = "rbxassetid://86715629586825",
+	item_siddur = "rbxassetid://74208757915141",
+	item_menorah = "rbxassetid://73337871702333",
+	item_kiddush_cup = "rbxassetid://91178239183248",
+	item_chandelier = "rbxassetid://84432144332306",
+	item_ornament = "rbxassetid://135789467838634",
+	item_holiday_decor = "rbxassetid://109697097754470",
 }
 
 return Icons

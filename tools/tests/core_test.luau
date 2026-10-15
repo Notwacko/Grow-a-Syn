@@ -4,6 +4,23 @@ local Constants = require("../../src/shared/Constants")
 local Upgrades = require("../../src/shared/UpgradeCatalog")
 local Outfits = require("../../src/shared/OutfitCatalog")
 
+local function stubRandom(seed)
+	local state = (seed * 1103515245 + 12345) % 2147483648
+	local function nextState()
+		state = (state * 1103515245 + 12345) % 2147483648
+		return state
+	end
+	return {
+		NextNumber = function()
+			return nextState() / 2147483648
+		end,
+		NextInteger = function(_, low, high)
+			return low + nextState() % (high - low + 1)
+		end,
+	}
+end
+local Items = require("../../src/shared/ItemCatalog")
+
 local failures = 0
 local function check(label, condition)
 	if not condition then
@@ -93,6 +110,82 @@ check("every outfit has both styles with pieces", (function()
 end)())
 check("unknown style uses classic", Outfits.pieces(Outfits.list[2], "x") == Outfits.list[2].classic)
 
+check("48 items from 8 categories and 6 rarities", #Items.list == 48)
+check("first offer is a common siddur at 50", Items.item("siddur_common").price == 50 and Items.item("siddur_common").rarity == "common")
+check("item models use the category name", Items.item("menorah_epic").model == "menorah")
+check("prices grow with rarity", Items.item("ark_mythical").price > Items.item("ark_legendary").price and Items.item("ark_rare").price > Items.item("ark_uncommon").price)
+check("merging is cheaper than buying the next rarity", Items.item("siddur_uncommon").price > 3 * Items.item("siddur_common").price)
+check("merge chain ends at mythical", Items.item("siddur_common").mergesTo == "siddur_uncommon" and Items.item("siddur_mythical").mergesTo == nil)
+check("torah scrolls can never be merged away", (function()
+	for _, entry in Items.list do
+		if entry.category == "torah" and entry.mergesTo ~= nil then
+			return false
+		end
+	end
+	return true
+end)())
+check("every category has a slot prefix", (function()
+	for _, category in Items.CATEGORIES do
+		local found = false
+		for _, group in Constants.SLOT_COUNTS do
+			if Constants.SLOT_PREFIX_CATEGORY[group.prefix] == category.id then
+				found = true
+			end
+		end
+		if not found then
+			return false
+		end
+	end
+	return true
+end)())
+check("growth is clamped", Items.growth(Items.item("siddur_common"), -5) == 0 and Items.growth(Items.item("siddur_common"), 9999) == 1 and near(Items.growth(Items.item("siddur_common"), 22.5), 0.5))
+check("young items earn less", near(Items.maturityFactor(0), 0.4) and near(Items.maturityFactor(1), 1) and Items.maturityFactor(0.5) > Items.maturityFactor(0.2))
+check("mutations multiply income", near(Items.bonusOf(Items.item("menorah_rare"), 1, "gilded"), Items.item("menorah_rare").bonus * 1.5) and near(Items.bonusOf(Items.item("menorah_rare"), 1, nil), Items.item("menorah_rare").bonus))
+check("display name shows the mutation", Items.displayName(Items.item("siddur_common"), "radiant") == "Radiant Simple Siddur" and Items.displayName(Items.item("siddur_common"), nil) == "Simple Siddur")
+check("stock is the same on every server", (function()
+	local a, b = Items.stockFor(5973453, stubRandom), Items.stockFor(5973453, stubRandom)
+	for id, count in a do
+		if b[id] ~= count then
+			return false
+		end
+	end
+	return true
+end)())
+check("the first siddur is always in stock", (function()
+	for epoch = 1, 200 do
+		if Items.stockFor(epoch, stubRandom)["siddur_common"] < 3 then
+			return false
+		end
+	end
+	return true
+end)())
+check("rare items are rarer than common ones", (function()
+	local common, mythical = 0, 0
+	for epoch = 1, 300 do
+		local stock = Items.stockFor(epoch, stubRandom)
+		for _, category in Items.CATEGORIES do
+			if stock[category.id .. "_common"] > 0 then
+				common += 1
+			end
+			if stock[category.id .. "_mythical"] > 0 then
+				mythical += 1
+			end
+		end
+	end
+	return common > mythical * 5
+end)())
+check("restock epoch changes every five minutes", Items.epochOf(0) == 0 and Items.epochOf(299) == 0 and Items.epochOf(300) == 1)
+check("saved items are sanitized", (function()
+	local cleaned = Items.cleanSaved({
+		{ uid = "i1", id = "siddur_common", slot = "Slot_Siddur1", grown = 12, since = 1000, mut = "gilded" },
+		{ uid = "i1", id = "siddur_common" },
+		{ uid = "i2", id = "nope_common" },
+		{ uid = "i3", id = "torah_common", grown = -5, mut = "bad" },
+		"junk",
+	})
+	return #cleaned == 2 and cleaned[1].mut == "gilded" and cleaned[2].grown == 0 and cleaned[2].mut == nil
+end)())
+check("bad saved data is empty", #Items.cleanSaved(nil) == 0 and #Items.cleanSaved("x") == 0)
 
 if failures == 0 then
 	print("all core tests passed")
