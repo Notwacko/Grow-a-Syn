@@ -17,7 +17,7 @@ local Tutorial = {}
 local TEXT = {
 	[Step.ClaimPlot] = "Walk to the glowing pad to claim your plot!",
 	[Step.Greet] = "Go to your synagogue door and welcome your first visitors!",
-	[Step.Buy] = "Buy your first seeds at the Shuk in the plaza!",
+	[Step.Buy] = "Open the Shop and buy your first item!",
 	[Step.Minyan] = "Your congregation is growing. Ten people make a minyan!",
 	[Step.Denomination] = "You have a minyan! Choose your denomination.",
 }
@@ -55,12 +55,6 @@ local function myDoor()
 	return plot and plot:FindFirstChild("Door", true)
 end
 
-local function seedShop()
-	local shuk = workspace:FindFirstChild("Shuk")
-	local shop = shuk and shuk:FindFirstChild("SeedShop")
-	return shop and shop:FindFirstChild("Crate_wheat")
-end
-
 function Tutorial.new(ctx, hud, hooks)
 	local self = {}
 	local step = nil
@@ -72,7 +66,7 @@ function Tutorial.new(ctx, hud, hooks)
 	banner = C.panel(ctx.layers.hud, {
 		name = "TutorialBanner",
 		anchor = Vector2.new(0.5, 0),
-		position = UDim2.new(0.5, 0, 0, Space.S + Space.XL + Space.XS + Space.XXL + Space.M),
+		position = UDim2.new(0.5, 0, 0, Space.S),
 		size = UDim2.new(1, -(Space.Touch + Space.S) * 2 - Space.S * 2, 0, Space.Touch + Space.XL),
 		color = Color.Panel,
 	})
@@ -220,8 +214,6 @@ function Tutorial.new(ctx, hud, hooks)
 			buildWorldMarker(nearestFreePad())
 		elseif step == Step.Greet then
 			buildWorldMarker(myDoor())
-		elseif step == Step.Buy then
-			buildWorldMarker(seedShop())
 		else
 			clearWorld()
 		end
@@ -235,7 +227,7 @@ function Tutorial.new(ctx, hud, hooks)
 				if pad ~= worldTarget or (att0 and not att0.Parent) then
 					refreshWorldTarget()
 				end
-			elseif (step == Step.Greet or step == Step.Buy) and (att0 and not att0.Parent) then
+			elseif step == Step.Greet and (att0 and not att0.Parent) then
 				refreshWorldTarget()
 			end
 		end
@@ -301,7 +293,9 @@ function Tutorial.new(ctx, hud, hooks)
 		banner.Root.Visible = text ~= nil
 		bannerText.Text = text or ""
 		refreshWorldTarget()
-		if step == Step.Minyan then
+		if step == Step.Buy then
+			highlightUi(hud.targets.Shop, "◀", "right")
+		elseif step == Step.Minyan then
 			highlightUi(hud.targets.Congregation, "⬇", "top")
 		elseif step == Step.Denomination then
 			hooks.openPicker()

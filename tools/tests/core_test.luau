@@ -3,7 +3,6 @@ local Format = require("../../src/server/core/Format")
 local Constants = require("../../src/shared/Constants")
 local Upgrades = require("../../src/shared/UpgradeCatalog")
 local Outfits = require("../../src/shared/OutfitCatalog")
-local Garden = require("../../src/shared/GardenCatalog")
 
 local failures = 0
 local function check(label, condition)
@@ -94,112 +93,6 @@ check("every outfit has both styles with pieces", (function()
 end)())
 check("unknown style uses classic", Outfits.pieces(Outfits.list[2], "x") == Outfits.list[2].classic)
 
-local function fakeRng(values)
-	local index = 0
-	local rng = {}
-	function rng:NextNumber()
-		index += 1
-		return values[(index - 1) % #values + 1]
-	end
-	function rng:NextInteger(a, b)
-		return a + math.floor(self:NextNumber() * (b - a + 1))
-	end
-	return rng
-end
-
-local wheat = Garden.crop("wheat")
-local dates = Garden.crop("dates")
-check("seven species crops", #Garden.crops == 7 and Garden.crop("pomegranate") and Garden.crop("olives") and Garden.crop("figs") and Garden.crop("grapes") and Garden.crop("barley") and wheat and dates)
-check("unknown crop is nil", Garden.crop("nope") == nil and Garden.mutation("nope") == nil)
-check("crops get dearer and slower", (function()
-	for index = 2, #Garden.crops do
-		local a, b = Garden.crops[index - 1], Garden.crops[index]
-		if b.seedCost <= a.seedCost or b.growSeconds <= a.growSeconds or b.sellBase <= a.sellBase then
-			return false
-		end
-	end
-	return true
-end)())
-check("every crop turns a profit", (function()
-	for _, crop in Garden.crops do
-		if crop.sellBase <= crop.seedCost then
-			return false
-		end
-	end
-	return true
-end)())
-check("bed count follows land tier", Garden.bedCount(1) == 6 and Garden.bedCount(2) == 9 and Garden.bedCount(5) == 18 and Garden.bedCount(6) == 18 and Garden.bedCount(nil) == 6)
-check("bed positions are unique", (function()
-	local seen = {}
-	for index = 1, Garden.BED_COUNT do
-		local x, z = Garden.bedPosition(index)
-		local key = x .. "," .. z
-		if seen[key] or not x or not z then
-			return false
-		end
-		seen[key] = true
-	end
-	return true
-end)())
-check("average weight value is the base value", Garden.value(wheat, Garden.averageWeight(wheat), {}) == 50)
-check("heavier fruit sells for more", Garden.value(wheat, 1.2, {}) > Garden.value(wheat, 0.4, {}))
-check("wet doubles value", Garden.value(wheat, Garden.averageWeight(wheat), { "wet" }) == 100)
-check("golden is ten times", Garden.value(wheat, Garden.averageWeight(wheat), { "golden" }) == 500)
-check("rainbow beats golden, only the best variant counts", Garden.multiplier({ "golden", "rainbow" }) == 25)
-check("weather adds to a variant", Garden.multiplier({ "golden", "wet" }) == 11 and Garden.multiplier({ "wet", "sunlit" }) == 3)
-check("unknown mutation is ignored", Garden.multiplier({ "nope" }) == 1)
-check("value of a missing crop is zero", Garden.value(nil, 1, {}) == 0)
-check("rolled weight stays in range", (function()
-	local rng = fakeRng({ 0, 0.5, 0.999 })
-	for _ = 1, 6 do
-		local w = Garden.rollWeight(rng, wheat)
-		if w < wheat.weight[1] or w > wheat.weight[2] then
-			return false
-		end
-	end
-	return true
-end)())
-check("variant roll can hit rainbow, golden or nothing", Garden.rollVariant(fakeRng({ 0.001 })) == "rainbow" and Garden.rollVariant(fakeRng({ 0.5, 0.01 })) == "golden" and Garden.rollVariant(fakeRng({ 0.9 })) == nil)
-check("restock always has wheat and rare seeds are not guaranteed", (function()
-	local stock = Garden.rollStock(fakeRng({ 0.99 }))
-	return stock.wheat > 0 and stock.dates == 0 and stock.pomegranate == 0
-end)())
-check("restock respects the ranges", (function()
-	local stock = Garden.rollStock(fakeRng({ 0.1, 0.4, 0.9 }))
-	for _, crop in Garden.crops do
-		local count = stock[crop.id]
-		if count ~= 0 and (count < crop.stock[1] or count > crop.stock[2]) then
-			return false
-		end
-	end
-	return true
-end)())
-check("stage thresholds", Garden.stageFor(0) == 0 and Garden.stageFor(0.2) == 1 and Garden.stageFor(0.49) == 1 and Garden.stageFor(0.5) == 2 and Garden.stageFor(0.99) == 2 and Garden.stageFor(1) == 3)
-check("time format", Garden.formatTime(0) == "0:00" and Garden.formatTime(61) == "1:01" and Garden.formatTime(299.2) == "5:00" and Garden.formatTime(-4) == "0:00")
-check("weather pick returns a real event", Garden.pickWeather(fakeRng({ 0.1 })).id == "rain" and Garden.pickWeather(fakeRng({ 0.95 })).id == "sunny")
-check("unknown weather falls back to clear", Garden.weatherEntry("nope").id == "clear")
-
-local clean = Garden.sanitizeSave({
-	seeds = { wheat = 3, nope = 5, barley = -1, figs = 500, olives = 1.5 },
-	basket = { { c = "wheat", w = 0.8, m = { "wet", "wet", "bogus" } }, { c = "ghost" }, { c = "dates", w = 999 } },
-	beds = { { i = 2, c = "wheat", p = 0.4, w = 0.8 }, { i = 2, c = "barley" }, { i = 99, c = "wheat" }, { i = 3, c = "ghost" }, { i = 4, c = "figs", p = 7 } },
-	selected = "figs",
-})
-check("save keeps good seeds and drops junk", clean.seeds.wheat == 3 and clean.seeds.nope == nil and clean.seeds.barley == nil and clean.seeds.olives == nil)
-check("save caps seed counts", clean.seeds.figs == Garden.SEED_MAX)
-check("save cleans the basket", #clean.basket == 2 and #clean.basket[1].m == 1 and clean.basket[1].m[1] == "wet")
-check("bad weight falls back to average", clean.basket[2].c == "dates" and clean.basket[2].w == Garden.averageWeight(dates))
-check("save drops duplicate and bad beds", #clean.beds == 2 and clean.beds[1].i == 2 and clean.beds[2].i == 4)
-check("progress is clamped", clean.beds[2].p == 1)
-check("selected seed survives", clean.selected == "figs")
-check("garbage save is safe", #Garden.sanitizeSave("x").beds == 0 and Garden.sanitizeSave(nil).selected == "" and next(Garden.sanitizeSave({ seeds = 5 }).seeds) == nil)
-check("basket is capped", (function()
-	local big = {}
-	for _ = 1, 200 do
-		table.insert(big, { c = "wheat", w = 0.8 })
-	end
-	return #Garden.sanitizeSave({ basket = big }).basket == Garden.BASKET_MAX
-end)())
 
 if failures == 0 then
 	print("all core tests passed")

@@ -4,15 +4,13 @@ State on 2026-10-15: Core is online, B has not pushed anything, C's client UI ex
 
 ## What Core does so the game still works without B
 - The tutorial moves from Welcome to Claim Plot as soon as the player owns a plot, even if RE_AdvanceTutorial never arrives.
-- The Buy step completes when the player buys seeds at the Shuk (it fires `Bridge.Purchased`) and is skipped after 75 seconds while workspace attribute `ProgressionOnline` is not true, so the congregation can pass 9 people and reach the minyan. When B sets `ProgressionOnline` the contract behaviour (Bridge.Purchased) applies again.
+- The Buy step completes when the player buys something (`Bridge.Purchased`) and is skipped after 75 seconds while workspace attribute `ProgressionOnline` is not true, so the congregation can pass 9 people and reach the minyan. When B sets `ProgressionOnline` the contract behaviour (Bridge.Purchased) applies again.
 - The three tutorial greeters stand at the synagogue door with a bobbing "!" marker.
 
 ## Client fixes made by the lead (2026-10-15)
 - `Main.client.lua` used `ScreenInsets = TopbarSafeInsets`, which sizes the ScreenGui to the Roblox topbar rectangle (about 58 pixels tall). Popups centered inside that strip and were cut off. It now uses `CoreUISafeInsets` (the full area below the topbar).
 - The mock never engages while Core is online: `ProgressionFallback` creates `RF_GetCatalog` and the other remotes, so `Net.init` binds the real server. The mock still exists for running the UI without any server.
 - The Land and Upgrade buttons call `Net.expandLand()` and `Net.upgradeBuilding()` and show the reason when a call fails.
-- `Tutorial.lua`: the Buy step now points at the Seed Shop with the arrow and beam and no longer highlights the Shop button.
-- New `GardenHUD.lua`: basket, seeds, weather and restock pills next to the left button stack.
 
 ## Still needed from B
 `RF_ChooseDenomination` and `RF_UpgradeBuilding` (they set `Denomination` and `Tier`, which Core turns into the building swap), the shop and inventory remotes, and `ProgressionOnline`.

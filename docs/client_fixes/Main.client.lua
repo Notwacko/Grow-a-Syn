@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -29,7 +30,12 @@ end
 
 local function updateScale()
 	local a = gui.AbsoluteSize
-	local s = math.clamp(math.min(a.X / 800, a.Y / 450), 0.9, 1.6)
+	local s
+	if UserInputService.TouchEnabled then
+		s = math.clamp(math.min(a.X / 800, a.Y / 450), 0.9, 1.5)
+	else
+		s = math.clamp(math.min(a.X / 1280, a.Y / 720), 0.62, 1)
+	end
 	uiScale.Scale = s
 	root.Size = UDim2.fromScale(1 / s, 1 / s)
 	for _, cb in resizeCallbacks do
@@ -55,7 +61,7 @@ local toastLayer = C.new("Frame", {
 	Name = "Toasts",
 	BackgroundTransparency = 1,
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 148),
+	Position = UDim2.new(0.5, 0, 0, 56),
 	Size = UDim2.new(1, -(Space.Touch + Space.S) * 2 - Space.S * 2, 0, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
 	ZIndex = 30,
@@ -120,7 +126,6 @@ local hooks = {
 }
 
 local HUD = require(script.Parent.HUD).new(ctx, hooks)
-require(script.Parent.GardenHUD).new(ctx)
 require(script.Parent.TierPopup).watch(ctx)
 require(script.Parent.Tutorial).new(ctx, HUD, hooks)
 

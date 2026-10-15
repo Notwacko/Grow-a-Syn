@@ -204,9 +204,9 @@ end
 local function buildSign(pad, index)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "PlotSign"
-	gui.Size = UDim2.fromOffset(260, 96)
-	gui.StudsOffset = Vector3.new(0, 8, 0)
-	gui.MaxDistance = 320
+	gui.Size = UDim2.fromOffset(170, 62)
+	gui.StudsOffset = Vector3.new(0, 7, 0)
+	gui.MaxDistance = 130
 	gui.LightInfluence = 0
 	gui.Adornee = pad
 	gui.Parent = pad
@@ -220,7 +220,7 @@ local function buildSign(pad, index)
 	title.Text = "FREE PLOT"
 	title.Parent = gui
 	local titleStroke = Instance.new("UIStroke")
-	titleStroke.Thickness = 4
+	titleStroke.Thickness = 3
 	titleStroke.Color = Color3.fromRGB(30, 30, 50)
 	titleStroke.Parent = title
 	local sub = Instance.new("TextLabel")
@@ -234,7 +234,7 @@ local function buildSign(pad, index)
 	sub.Text = "PLOT " .. index
 	sub.Parent = gui
 	local subStroke = Instance.new("UIStroke")
-	subStroke.Thickness = 3
+	subStroke.Thickness = 2
 	subStroke.Color = Color3.fromRGB(30, 30, 50)
 	subStroke.Parent = sub
 end

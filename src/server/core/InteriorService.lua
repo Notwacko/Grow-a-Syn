@@ -32,7 +32,6 @@ function InteriorService.start()
 	table.sort(modules, function(a, b)
 		return (a.order or 100) < (b.order or 100)
 	end)
-	StarterPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
 	StarterPlayer.CameraMaxZoomDistance = 350
 end
 
