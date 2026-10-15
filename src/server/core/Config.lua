@@ -63,6 +63,9 @@ Config.CONGREGANT_HIP = 2.6
 Config.CONGREGANT_VARIANTS = 6
 
 Config.EVENT_MULT_MAX = 100
+Config.EVENT_FIRST_DELAY = 240
+Config.EVENT_INTERVAL = 900
+Config.EVENT_DURATION = 180
 
 Config.SOUNDS = {
 	ping = "rbxasset://sounds/electronicpingshort.wav",

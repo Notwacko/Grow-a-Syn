@@ -7,6 +7,7 @@ local Guard = require(script.Parent.Guard)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 local UpgradeCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
 local OutfitCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("OutfitCatalog"))
+local ItemCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("ItemCatalog"))
 
 local DataService = {}
 
@@ -32,13 +33,14 @@ local function defaultData()
 		congregation = 0,
 		upgrades = {},
 		cosmetics = { outfit = OutfitCatalog.AUTO, style = "classic" },
-		progress = { denomination = "", tier = 1 },
+		progress = { denomination = "", tier = 1, items = {} },
 	}
 end
 
 local function cleanProgress(raw)
-	local result = { denomination = "", tier = 1 }
+	local result = { denomination = "", tier = 1, items = {} }
 	if type(raw) == "table" then
+		result.items = ItemCatalog.cleanSaved(raw.items)
 		if raw.denomination == "ashkenazi" then
 			result.denomination = raw.denomination
 		end
@@ -100,6 +102,14 @@ local function sanitize(raw)
 	return data
 end
 
+local function itemsSignature(items)
+	local parts = {}
+	for _, entry in items or {} do
+		table.insert(parts, string.format("%s:%s:%s:%s:%d", entry.uid, tostring(entry.slot), tostring(entry.mut), tostring(entry.since), math.floor(entry.grown or 0)))
+	end
+	return table.concat(parts, ",")
+end
+
 local function snapshotOf(data)
 	local levels = {}
 	for _, definition in UpgradeCatalog.list do
@@ -107,7 +117,7 @@ local function snapshotOf(data)
 	end
 	local cosmetics = data.cosmetics or {}
 	local progress = data.progress or {}
-	return string.format("%.2f|%d|%d|%d|%s|%s|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style), tostring(progress.denomination), tostring(progress.tier))
+	return string.format("%.2f|%d|%d|%d|%s|%s|%s|%s|%s|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","), tostring(cosmetics.outfit), tostring(cosmetics.style), tostring(progress.denomination), tostring(progress.tier), itemsSignature(progress.items))
 end
 
 function DataService.setCongregationProvider(provider)

@@ -5,7 +5,10 @@ local Link = require(script.Parent.Link)
 local Guard = require(script.Parent.Guard)
 local Notify = require(script.Parent.Notify)
 local Economy = require(script.Parent.Economy)
-local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+local ItemService = require(script.Parent.ItemService)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Constants = require(Shared:WaitForChild("Constants"))
+local ItemCatalog = require(Shared:WaitForChild("ItemCatalog"))
 
 local ProgressionFallback = {}
 
@@ -70,18 +73,31 @@ local function catalog()
 		upgrades[tier] = { cost = TIER_COST[tier], requirement = "Needs land tier " .. (tier - 1) }
 	end
 	return {
-		items = {},
+		items = ItemService.catalogItems(),
 		buildings = {},
 		packs = {},
 		boosts = {},
 		denominations = DENOMINATIONS,
 		upgrades = upgrades,
+		rarityColors = ItemCatalog.rarityColors(),
+		restockAt = ItemService.restockAt(),
 	}
+end
+
+local function refreshIncome(player)
+	if not active() or not Guard.isPlayer(player) then
+		return
+	end
+	local value = (INCOME_MULT[tierOf(player)] or 1) * (1 + ItemService.bonus(player))
+	value = math.floor(value * 1000 + 0.5) / 1000
+	if player:GetAttribute("IncomeMult") ~= value then
+		player:SetAttribute("IncomeMult", value)
+	end
 end
 
 local function setTier(player, tier)
 	player:SetAttribute("Tier", tier)
-	player:SetAttribute("IncomeMult", INCOME_MULT[tier] or 1)
+	refreshIncome(player)
 end
 
 local function chooseDenomination(player, id)
@@ -144,13 +160,14 @@ function ProgressionFallback.serialize(player)
 	if type(denomination) ~= "string" or not known(denomination) then
 		denomination = ""
 	end
-	return { denomination = denomination, tier = tierOf(player) }
+	return { denomination = denomination, tier = tierOf(player), items = ItemService.serialize(player) }
 end
 
 function ProgressionFallback.applySaved(player, saved)
 	if not active() then
 		return
 	end
+	ItemService.init(player, type(saved) == "table" and saved.items or nil)
 	if type(saved) == "table" and type(saved.denomination) == "string" and known(saved.denomination) then
 		player:SetAttribute("Denomination", saved.denomination)
 		setTier(player, math.clamp(math.floor(tonumber(saved.tier) or 2), 2, Constants.MAX_TIER))
@@ -177,21 +194,35 @@ function ProgressionFallback.start()
 		end
 	end
 	bind("RF_GetCatalog", catalog)
-	bind("RF_GetInventory", function()
-		return { items = {} }
+	bind("RF_GetInventory", function(player)
+		return ItemService.clientInventory(player)
 	end)
-	bind("RF_Buy", function()
-		return fail("locked")
+	bind("RF_Buy", function(player, offerId)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.buy(player, offerId)
 	end)
-	bind("RF_Merge", function()
-		return fail("locked")
+	bind("RF_Merge", function(player, ...)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.merge(player, ...)
 	end)
-	bind("RF_Equip", function()
-		return fail("locked")
+	bind("RF_Equip", function(player, uid, slotName)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.equip(player, uid, slotName)
 	end)
-	bind("RF_Unequip", function()
-		return fail("locked")
+	bind("RF_Unequip", function(player, uid)
+		if not active() then
+			return fail("busy")
+		end
+		return ItemService.unequip(player, uid)
 	end)
+	ItemService.Changed:Connect(refreshIncome)
+	ItemService.Grew:Connect(refreshIncome)
 	bind("RF_ChooseDenomination", chooseDenomination)
 	bind("RF_UpgradeBuilding", upgradeBuilding)
 end
