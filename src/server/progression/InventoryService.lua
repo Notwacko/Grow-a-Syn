@@ -128,10 +128,24 @@ local function isApiAccessError(err)
 	return string.find(text, "api", 1, true) ~= nil or string.find(text, "publish", 1, true) ~= nil
 end
 
+local function coreBoost(player)
+	local value = player:GetAttribute("CoreBoostMult")
+	if type(value) ~= "number" or value ~= value or value < 1 or value > 10 then
+		return 1
+	end
+	return value
+end
+
+local function applyBoost(player)
+	local profile = profiles[player]
+	local mult = (profile and profile.data and profile.loaded and not profile.failed) and profile.data.BoostMult or 1
+	player:SetAttribute("BoostMult", mult * coreBoost(player))
+end
+
 local function writeAttributes(player, data)
 	player:SetAttribute("Denomination", data.Denomination)
 	player:SetAttribute("Tier", data.Tier)
-	player:SetAttribute("BoostMult", data.BoostMult)
+	applyBoost(player)
 	player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
 end
 
@@ -360,7 +374,7 @@ function InventoryService.setBoost(player, mult, endsAt)
 	local data = InventoryService.get(player)
 	data.BoostMult = mult
 	data.BoostEndsAt = endsAt
-	player:SetAttribute("BoostMult", mult)
+	applyBoost(player)
 	player:SetAttribute("BoostEndsAt", endsAt)
 end
 
@@ -403,8 +417,11 @@ local function onPlayerAdded(player)
 	player:SetAttribute("IncomeMult", 1)
 	player:SetAttribute("WelcomeBonus", 0)
 	player:SetAttribute("TorahCount", 0)
-	player:SetAttribute("BoostMult", 1)
 	player:SetAttribute("BoostEndsAt", 0)
+	applyBoost(player)
+	player:GetAttributeChangedSignal("CoreBoostMult"):Connect(function()
+		applyBoost(player)
+	end)
 	local profile = load(player)
 	if not player.Parent then
 		if profile.loaded then

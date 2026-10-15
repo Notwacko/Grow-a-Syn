@@ -148,6 +148,22 @@ function ShopService.init()
 		return Guard.run(player, "buy", ShopService.buy, player, offerId)
 	end
 
+	local grantItem = Link.get(ServerStorage, "Bridge", "GrantItem", "BindableFunction")
+	grantItem.OnInvoke = function(player, category, rarity)
+		if typeof(player) ~= "Instance" or not player:IsA("Player") or not InventoryService.get(player) then
+			return false
+		end
+		if not Guard.isString(category) or not Guard.isString(rarity) then
+			return false
+		end
+		if not InventoryService.addItem(player, category, rarity) then
+			return false
+		end
+		InventoryService.changed(player)
+		task.spawn(InventoryService.save, player)
+		return true
+	end
+
 	local receiptRouter = Link.get(ServerStorage, "Bridge", "ProgressionReceipt", "BindableFunction")
 	receiptRouter.OnInvoke = function(receipt)
 		if type(receipt) ~= "table" or not offerByProduct[receipt.ProductId] then
