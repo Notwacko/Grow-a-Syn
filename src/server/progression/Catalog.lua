@@ -177,18 +177,63 @@ function Catalog.isValidSlot(category, slotName)
 	return false
 end
 
-function Catalog.public(products)
+local function clientItem(o)
+	local nextRarity = Balance.nextRarity(o.rarity)
+	return {
+		id = o.id,
+		kind = "item",
+		name = o.name,
+		category = o.category,
+		rarity = o.rarity,
+		price = o.priceMoney,
+		robux = o.priceRobux,
+		minTier = o.minTier,
+		model = o.category,
+		mergesTo = nextRarity and (o.category .. "_" .. nextRarity) or nil,
+	}
+end
+
+function Catalog.public(products, tier)
 	local list = {}
+	local items, packs, boosts = {}, {}, {}
 	for _, o in ipairs(offers) do
 		if not o.priceRobux or (products[o.id] or 0) > 0 then
 			table.insert(list, table.clone(o))
+			if o.kind == "item" then
+				table.insert(items, clientItem(o))
+			elseif o.kind == "money_pack" then
+				table.insert(packs, { id = o.id, kind = "pack", name = o.name, robux = o.priceRobux, money = Balance.moneyPackAmount(o.scale, tier) })
+			elseif o.kind == "boost" then
+				table.insert(boosts, { id = o.id, kind = "boost", name = o.name, robux = o.priceRobux, mult = o.multiplier, duration = o.durationSeconds })
+			end
 		end
+	end
+	local denominations = {}
+	for _, d in ipairs(Catalog.denominations) do
+		table.insert(denominations, { id = d.id, name = d.name, blurb = d.blurb, stageNames = d.stageNames, stages = d.stageNames, model = d.id .. "_T2" })
+	end
+	local rarityColors = {}
+	for _, r in ipairs(Catalog.rarities) do
+		rarityColors[r.id] = r.color
+	end
+	local upgrades = {}
+	for t = 1, Balance.MaxTier do
+		upgrades[t] = {
+			cost = Balance.UpgradeCost[t] or 0,
+			requirement = t == 2 and "Choose a denomination" or (t > 2 and ("Land tier " .. (t - 1)) or ""),
+		}
 	end
 	return {
 		rarities = Catalog.rarities,
 		categories = Catalog.categories,
-		denominations = Catalog.denominations,
+		denominations = denominations,
 		offers = list,
+		items = items,
+		buildings = {},
+		packs = packs,
+		boosts = boosts,
+		upgrades = upgrades,
+		rarityColors = rarityColors,
 	}
 end
 

@@ -138,8 +138,9 @@ function ShopService.init()
 	end
 
 	local getCatalog = Link.get(ReplicatedStorage, "Remotes", "RF_GetCatalog", "RemoteFunction")
-	getCatalog.OnServerInvoke = function()
-		return Catalog.public(Products)
+	getCatalog.OnServerInvoke = function(player)
+		local data = InventoryService.get(player)
+		return Catalog.public(Products, data and data.Tier or 1)
 	end
 
 	local buyRemote = Link.get(ReplicatedStorage, "Remotes", "RF_Buy", "RemoteFunction")
@@ -147,7 +148,29 @@ function ShopService.init()
 		return Guard.run(player, "buy", ShopService.buy, player, offerId)
 	end
 
-	MarketplaceService.ProcessReceipt = processReceipt
+	local grantItem = Link.get(ServerStorage, "Bridge", "GrantItem", "BindableFunction")
+	grantItem.OnInvoke = function(player, category, rarity)
+		if typeof(player) ~= "Instance" or not player:IsA("Player") or not InventoryService.get(player) then
+			return false
+		end
+		if not Guard.isString(category) or not Guard.isString(rarity) then
+			return false
+		end
+		if not InventoryService.addItem(player, category, rarity) then
+			return false
+		end
+		InventoryService.changed(player)
+		task.spawn(InventoryService.save, player)
+		return true
+	end
+
+	local receiptRouter = Link.get(ServerStorage, "Bridge", "ProgressionReceipt", "BindableFunction")
+	receiptRouter.OnInvoke = function(receipt)
+		if type(receipt) ~= "table" or not offerByProduct[receipt.ProductId] then
+			return nil
+		end
+		return processReceipt(receipt)
+	end
 end
 
 return ShopService

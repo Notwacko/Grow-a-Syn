@@ -110,6 +110,24 @@ local function applySkin(root, rarity)
 	end
 end
 
+local function fitToSlot(model, category, slot)
+	local fit = Balance.SlotFit[category] or { align = "bottom" }
+	if model:IsA("BasePart") then
+		local y = fit.align == "top" and -model.Size.Y * 0.5 or (fit.align == "center" and 0 or model.Size.Y * 0.5)
+		model.CFrame = slot.CFrame * CFrame.new(0, y, 0)
+		return
+	end
+	model:PivotTo(slot.CFrame)
+	local _, size = model:GetBoundingBox()
+	if fit.maxHeight and size.Y > fit.maxHeight then
+		model:ScaleTo(model:GetScale() * fit.maxHeight / size.Y)
+	end
+	local box, fitted = model:GetBoundingBox()
+	local y = fit.align == "top" and -fitted.Y * 0.5 or (fit.align == "center" and 0 or fitted.Y * 0.5)
+	local target = slot.CFrame * CFrame.new(0, y, 0)
+	model:PivotTo(model:GetPivot() + (target.Position - box.Position))
+end
+
 local function clearPlaced(player)
 	local folder = placedFolders[player]
 	if folder then
@@ -138,11 +156,7 @@ function EquipService.placeAll(player)
 			model.Name = item.category .. "_" .. item.uid
 			model:SetAttribute("ItemUid", item.uid)
 			applySkin(model, item.rarity)
-			if model:IsA("BasePart") then
-				model.CFrame = slot.CFrame * CFrame.new(0, model.Size.Y * 0.5, 0)
-			else
-				model:PivotTo(slot.CFrame)
-			end
+			fitToSlot(model, item.category, slot)
 			model.Parent = folder
 		end
 	end

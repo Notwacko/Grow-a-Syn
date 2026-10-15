@@ -11,6 +11,9 @@ local InventoryService = {}
 
 local STORE_NAME = "GrowASyn_Progression_v1"
 local MAX_RECEIPTS = 100
+local LOCK_SECONDS = 150
+local LOCK_WAITS = 6
+local LOCK_WAIT_SECONDS = 5
 
 local profiles = {}
 local changedListeners = {}
@@ -125,71 +128,136 @@ local function isApiAccessError(err)
 	return string.find(text, "api", 1, true) ~= nil or string.find(text, "publish", 1, true) ~= nil
 end
 
+local function coreBoost(player)
+	local value = player:GetAttribute("CoreBoostMult")
+	if type(value) ~= "number" or value ~= value or value < 1 or value > 10 then
+		return 1
+	end
+	return value
+end
+
+local function applyBoost(player)
+	local profile = profiles[player]
+	local mult = (profile and profile.data and profile.loaded and not profile.failed) and profile.data.BoostMult or 1
+	player:SetAttribute("BoostMult", mult * coreBoost(player))
+end
+
 local function writeAttributes(player, data)
 	player:SetAttribute("Denomination", data.Denomination)
 	player:SetAttribute("Tier", data.Tier)
-	player:SetAttribute("BoostMult", data.BoostMult)
+	applyBoost(player)
 	player:SetAttribute("BoostEndsAt", data.BoostEndsAt)
 end
 
+local function claim(player, steal)
+	local result, waiting = nil, false
+	store:UpdateAsync(key(player), function(old)
+		waiting = false
+		if
+			not steal
+			and type(old) == "table"
+			and type(old.ActiveJob) == "string"
+			and old.ActiveJob ~= game.JobId
+			and type(old.ActiveAt) == "number"
+			and os.time() - old.ActiveAt < LOCK_SECONDS
+		then
+			waiting = true
+			return nil
+		end
+		local data = type(old) == "table" and old or {}
+		data.ActiveJob = game.JobId
+		data.ActiveAt = os.time()
+		result = data
+		return data
+	end)
+	return result, waiting
+end
+
 local function load(player)
-	local profile = { loaded = false, failed = false, data = nil }
+	local profile = { loaded = false, failed = false, data = nil, saving = false, released = false }
 	profiles[player] = profile
 	if memoryOnly then
 		profile.data = defaultData()
 		profile.loaded = true
 		return profile
 	end
-	for attempt = 1, Balance.LoadRetries do
-		local ok, result = pcall(function()
-			return store:GetAsync(key(player))
-		end)
-		if ok then
+	local attempt = 0
+	local lockWaits = 0
+	while attempt < Balance.LoadRetries and player.Parent do
+		local ok, result, waiting = pcall(claim, player, lockWaits >= LOCK_WAITS)
+		if ok and waiting then
+			lockWaits += 1
+			task.wait(LOCK_WAIT_SECONDS)
+		elseif ok then
 			profile.data = sanitize(result)
 			profile.loaded = true
 			return profile
+		else
+			attempt += 1
+			warn("[Progression] load attempt " .. attempt .. " failed for " .. player.UserId .. ": " .. tostring(result))
+			if RunService:IsStudio() and isApiAccessError(result) then
+				memoryOnly = true
+				warn("[Progression] Studio API access is off, progression runs in memory only")
+				profile.data = defaultData()
+				profile.loaded = true
+				return profile
+			end
+			task.wait(attempt * 2)
 		end
-		warn("[Progression] load attempt " .. attempt .. " failed for " .. player.UserId .. ": " .. tostring(result))
-		if RunService:IsStudio() and isApiAccessError(result) then
-			memoryOnly = true
-			warn("[Progression] Studio API access is off, progression runs in memory only")
-			profile.data = defaultData()
-			profile.loaded = true
-			return profile
-		end
-		if not player.Parent then
-			break
-		end
-		task.wait(attempt * 2)
 	end
 	profile.failed = true
 	return profile
 end
 
-function InventoryService.save(player)
+function InventoryService.save(player, release)
 	local profile = profiles[player]
-	if not profile or not profile.loaded or profile.failed then
+	if not profile or not profile.loaded or profile.failed or profile.released then
 		return false
 	end
 	if memoryOnly then
 		return true
 	end
+	while profile.saving do
+		task.wait(0.1)
+	end
+	if profile.released then
+		return false
+	end
+	profile.saving = true
 	local payload = serialize(profile.data)
+	payload.ActiveJob = not release and game.JobId or nil
+	payload.ActiveAt = os.time()
+	local saved = false
 	for attempt = 1, Balance.SaveRetries do
+		local lost = false
 		local ok, err = pcall(function()
-			store:UpdateAsync(key(player), function()
+			store:UpdateAsync(key(player), function(old)
+				if type(old) == "table" and type(old.ActiveJob) == "string" and old.ActiveJob ~= game.JobId then
+					lost = true
+					return nil
+				end
 				return payload
 			end)
 		end)
 		if ok then
-			return true
+			if lost then
+				profile.released = true
+				warn("[Progression] another server owns the data for " .. player.UserId .. ", not overwriting")
+			else
+				saved = true
+				if release then
+					profile.released = true
+				end
+			end
+			break
 		end
 		warn("[Progression] save attempt " .. attempt .. " failed for " .. player.UserId .. ": " .. tostring(err))
 		if attempt < Balance.SaveRetries then
 			task.wait(attempt)
 		end
 	end
-	return false
+	profile.saving = false
+	return saved
 end
 
 function InventoryService.get(player)
@@ -205,7 +273,7 @@ function InventoryService.snapshot(player)
 	local items = {}
 	if data then
 		for _, item in ipairs(data.Items) do
-			table.insert(items, { uid = item.uid, category = item.category, rarity = item.rarity, slot = item.slot })
+			table.insert(items, { uid = item.uid, id = item.category .. "_" .. item.rarity, category = item.category, rarity = item.rarity, slot = item.slot })
 		end
 	end
 	return {
@@ -306,7 +374,7 @@ function InventoryService.setBoost(player, mult, endsAt)
 	local data = InventoryService.get(player)
 	data.BoostMult = mult
 	data.BoostEndsAt = endsAt
-	player:SetAttribute("BoostMult", mult)
+	applyBoost(player)
 	player:SetAttribute("BoostEndsAt", endsAt)
 end
 
@@ -349,12 +417,16 @@ local function onPlayerAdded(player)
 	player:SetAttribute("IncomeMult", 1)
 	player:SetAttribute("WelcomeBonus", 0)
 	player:SetAttribute("TorahCount", 0)
-	player:SetAttribute("BoostMult", 1)
 	player:SetAttribute("BoostEndsAt", 0)
+	applyBoost(player)
+	player:GetAttributeChangedSignal("CoreBoostMult"):Connect(function()
+		applyBoost(player)
+	end)
 	local profile = load(player)
 	if not player.Parent then
 		if profile.loaded then
-			InventoryService.save(player)
+			profiles[player] = profile
+			InventoryService.save(player, true)
 		end
 		profiles[player] = nil
 		return
@@ -374,7 +446,7 @@ end
 local function onPlayerRemoving(player)
 	local profile = profiles[player]
 	if profile and profile.loaded then
-		InventoryService.save(player)
+		InventoryService.save(player, true)
 	end
 	profiles[player] = nil
 end
@@ -416,7 +488,7 @@ function InventoryService.init()
 		for player in pairs(profiles) do
 			pending += 1
 			task.spawn(function()
-				InventoryService.save(player)
+				InventoryService.save(player, true)
 				pending -= 1
 			end)
 		end

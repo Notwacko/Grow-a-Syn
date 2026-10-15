@@ -38,6 +38,12 @@ grant.Event:Connect(function(player, amount, reason)
 	player:SetAttribute("Money", (player:GetAttribute("Money") or 0) + amount)
 end)
 
+local receiptRouter = Link.get(ServerStorage, "Bridge", "ProgressionReceipt", "BindableFunction")
+game:GetService("MarketplaceService").ProcessReceipt = function(receipt)
+	local ok, decision = pcall(receiptRouter.Invoke, receiptRouter, receipt)
+	return ok and decision or Enum.ProductPurchaseDecision.NotProcessedYet
+end
+
 workspace:WaitForChild("Plots", 3)
 
 local function setup(player)
