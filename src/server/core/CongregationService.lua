@@ -24,6 +24,7 @@ local walkers = {}
 local idlers = {}
 local rng = Random.new()
 local moveAccumulator = 0
+local providers = {}
 
 local GOLD = Color3.fromRGB(255, 214, 80)
 
@@ -271,6 +272,26 @@ local function startWalk(state, entry)
 	}
 end
 
+local function providerValue(name, player)
+	local provider = providers[name]
+	if not provider then
+		return 0
+	end
+	local ok, value = pcall(provider, player)
+	if ok and Guard.isNumber(value) then
+		return value
+	end
+	return 0
+end
+
+local function giveTip(state, position)
+	local tip = providerValue("tip", state.player)
+	if tip > 0 then
+		Economy.grant(state.player, tip, "tip")
+		Fx.floatText(position + Vector3.new(0, 5.5, 0), "+" .. tip, GOLD)
+	end
+end
+
 local function arrive(state, entry)
 	local info = state.info
 	walkers[entry] = nil
@@ -283,6 +304,7 @@ local function arrive(state, entry)
 	seatInstant(state, entry)
 	local seat = info.seats[entry.seatIndex].Position
 	Fx.sparkle(seat + Vector3.new(0, 2.5, 0))
+	giveTip(state, seat)
 	setCongregation(state)
 end
 
@@ -340,7 +362,7 @@ local function stepWalkers(dt)
 end
 
 local function arrivalInterval(player)
-	local welcome = readNumber(player:GetAttribute("WelcomeBonus"), 0)
+	local welcome = readNumber(player:GetAttribute("WelcomeBonus"), 0) + providerValue("arrivalBonus", player)
 	local base = Income.arrivalInterval(
 		welcome,
 		player:GetAttribute("HasMinyan") == true,
@@ -373,6 +395,7 @@ local function spawnArrival(state)
 	else
 		entry.status = "seated"
 		state.count += 1
+		giveTip(state, info.seats[seatIndex].Position)
 		setCongregation(state)
 	end
 end
@@ -674,6 +697,10 @@ function CongregationService.savedCount(player)
 	end
 	local current = state.count + state.walking
 	return math.max(current, state.restoreTarget or 0)
+end
+
+function CongregationService.setProviders(newProviders)
+	providers = newProviders or {}
 end
 
 function CongregationService.greetCount(player)

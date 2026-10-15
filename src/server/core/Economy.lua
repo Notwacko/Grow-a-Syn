@@ -14,6 +14,7 @@ local Economy = {}
 local active = {}
 local pendingGrants = {}
 local tickStarted = false
+local bonusProvider = nil
 
 local function round2(value)
 	return math.floor(value * 100 + 0.5) / 100
@@ -113,19 +114,39 @@ function Economy.getEventMult()
 	return readNumber(Workspace:GetAttribute("EventMult"), 1)
 end
 
+function Economy.setBonusProvider(provider)
+	bonusProvider = provider
+end
+
+function Economy.bonusPerSecond(player)
+	if not bonusProvider then
+		return 0
+	end
+	local ok, value = pcall(bonusProvider, player)
+	if ok and Guard.isNumber(value) then
+		return math.clamp(value, 0, 1e12)
+	end
+	return 0
+end
+
 function Economy.incomePerSecond(player)
-	return Income.perSecond(
+	local base = Income.perSecond(
 		player:GetAttribute("HasMinyan") == true,
 		readNumber(player:GetAttribute("Congregation"), 0),
 		readNumber(player:GetAttribute("IncomeMult"), 1),
 		readNumber(player:GetAttribute("BoostMult"), 1),
 		Economy.getEventMult()
 	)
+	if player:GetAttribute("HasMinyan") ~= true then
+		return 0
+	end
+	return math.clamp(base + Economy.bonusPerSecond(player), 0, 1e12)
 end
 
 local function tickPlayer(player, dt)
 	local perSecond = Economy.incomePerSecond(player)
 	setAttribute(player, "MoneyPerSecond", round2(perSecond))
+	setAttribute(player, "BonusPerSecond", round2(Economy.bonusPerSecond(player)))
 	if perSecond > 0 then
 		player:SetAttribute("Money", clampMoney(Economy.getMoney(player) + perSecond * dt))
 	end

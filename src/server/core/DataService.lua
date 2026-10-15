@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(script.Parent.Config)
 local Guard = require(script.Parent.Guard)
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+local UpgradeCatalog = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("UpgradeCatalog"))
 
 local DataService = {}
 
@@ -13,6 +14,7 @@ local SCHEMA_VERSION = 1
 
 local states = {}
 local congregationProvider = nil
+local upgradeProvider = nil
 local warnedOffline = false
 
 local function storeKey(player)
@@ -25,7 +27,20 @@ local function defaultData()
 		landTier = 1,
 		tutorialStep = 0,
 		congregation = 0,
+		upgrades = {},
 	}
+end
+
+local function cleanUpgrades(raw)
+	local result = {}
+	for _, definition in UpgradeCatalog.list do
+		local value = type(raw) == "table" and raw[definition.id] or 0
+		if not Guard.isInteger(value, 0, definition.maxLevel) then
+			value = 0
+		end
+		result[definition.id] = value
+	end
+	return result
 end
 
 local function sanitize(raw)
@@ -48,15 +63,24 @@ local function sanitize(raw)
 	if data.tutorialStep < Constants.TUTORIAL.BUY then
 		data.congregation = 0
 	end
+	data.upgrades = cleanUpgrades(raw.upgrades)
 	return data
 end
 
 local function snapshotOf(data)
-	return string.format("%.2f|%d|%d|%d", data.money, data.landTier, data.tutorialStep, data.congregation)
+	local levels = {}
+	for _, definition in UpgradeCatalog.list do
+		table.insert(levels, tostring(data.upgrades and data.upgrades[definition.id] or 0))
+	end
+	return string.format("%.2f|%d|%d|%d|%s", data.money, data.landTier, data.tutorialStep, data.congregation, table.concat(levels, ","))
 end
 
 function DataService.setCongregationProvider(provider)
 	congregationProvider = provider
+end
+
+function DataService.setUpgradeProvider(provider)
+	upgradeProvider = provider
 end
 
 function DataService.collect(player)
@@ -72,6 +96,7 @@ function DataService.collect(player)
 		landTier = tonumber(player:GetAttribute("LandTier")) or 1,
 		tutorialStep = tonumber(player:GetAttribute("TutorialStep")) or 0,
 		congregation = math.floor(tonumber(congregation) or 0),
+		upgrades = cleanUpgrades(upgradeProvider and upgradeProvider(player) or nil),
 	}
 end
 
@@ -140,6 +165,7 @@ function DataService.save(player, force)
 				merged.landTier = data.landTier
 				merged.tutorialStep = data.tutorialStep
 				merged.congregation = data.congregation
+				merged.upgrades = data.upgrades
 				merged.savedAt = os.time()
 				return merged
 			end)

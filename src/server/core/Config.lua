@@ -68,6 +68,7 @@ Config.COOLDOWNS = {
 	ExpandLand = 1.5,
 	AdvanceTutorial = 1,
 	Greet = 0.25,
+	Upgrade = 0.6,
 }
 
 Config.CLOTH_TOP_COLORS = {
